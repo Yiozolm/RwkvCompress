@@ -170,6 +170,41 @@ class OmniShift(nn.Module):
         return out
 
 
+def q_shift_singlehead(input, shift_pixel=1, with_cls_token=False):
+    # modified single head q_shift from Vision-RWKV
+
+    shift_time = 4 * shift_pixel
+
+    B, C, H, W = input.shape
+    assert C % 4 == 0, "Channel number must be divisible by 4 for 4-way directional shifts."
+
+    output = torch.zeros_like(input)
+
+    Channel_splits = C // shift_time
+    # # 每个方向处理 C/4 通道
+    # c1, c2, c3, c4 = C // shift_time, C // shift_time, C * 3 // shift_time, C
+    # # 这需要修改
+    # # 左移（对右边赋值）
+    # output[:, 0:c1, :, shift_pixel:] = input[:, 0:c1, :, 0:W - shift_pixel]
+    # # 右移（对左边赋值）
+    # output[:, c1:c2, :, 0:W - shift_pixel] = input[:, c1:c2, :, shift_pixel:]
+    # # 上移（对下边赋值）
+    # output[:, c2:c3, shift_pixel:, :] = input[:, c2:c3, 0:H - shift_pixel, :]
+    # # 下移（对上边赋值）
+    # output[:, c3:c4, 0:H - shift_pixel, :] = input[:, c3:c4, shift_pixel:, :]
+
+    for i in range(4):
+        for j in range(shift_pixel):
+            output[:, (i * 4 + j) * Channel_splits:(i * 4 + j + 1) * Channel_splits, :,:] = input[:, (i * 4 + j) * Channel_splits:(i * 4 + j + 1) * Channel_splits:,:, 0:W - shift_pixel]
+
+    return output
+
+
+class KdistShift(nn.Module):
+    def __init__(self, dim):
+        super(KdistShift, self).__init__()
+
+
 class SpatialMix_BiV4(nn.Module):
     def __init__(self, dim):
         super().__init__()
@@ -382,7 +417,7 @@ class LALIC(Elic2022Official):
             for k in range(1, len(self.groups))
         }
 
-        # In [He2022], this is labeled "g_sp^(k)".
+        # In [He2022], this is labeled "g_sp^(k)". Same as ELIC
         spatial_context = [
             CheckerboardMaskedConv2d(
                 self.groups[k],
@@ -402,7 +437,7 @@ class LALIC(Elic2022Official):
                 self.groups[k] * 2,
                 min_ch=N * 2,
                 num_layers=3,
-                make_layer=EntropyParametersBlock,
+                make_layer=EntropyParametersBlock,  # two differences
                 make_act=nn.Identity,
                 kernel_size=1,
                 stride=1,
