@@ -253,20 +253,23 @@ def q_shift_singlehead(input, shift_pixel=1):
 
 
 class KManhattanShift(nn.Module):
-    def __init__(self, dim, shift_pixel):
+    def __init__(self, shift_pixel):
         super(KManhattanShift, self).__init__()
-        self.dim = dim
         self.shift_pixel = shift_pixel
-        ddd = torch.ones(1, 1, self.dim)
-        for i in range(self.dim):
-            ddd[0, 0 , i] = 1. - i / self.dim
-        self.time_maa_x = nn.Parameter(ddd)
 
     def forward(self, x):
+        _, C, _, _ = x.size()
+        ddd = torch.ones(1, C, 1, 1).to(x.device)
+        for i in range(self.dim):
+            ddd[0, i, 0, 0] = 1. - i / C
+        self.time_maa_x = nn.Parameter(ddd)
         output = x
+
         for i in range(1, self.shift_pixel + 1):
             xx = q_shift_singlehead(x, shift_pixel=i) - x
-            output += (self.time_maa_x ** i) * xx
+            output += torch.pow(self.time_maa_x, i) * xx
+
+        return output
 
 
 class SpatialMix_BiV4(nn.Module):
@@ -276,7 +279,7 @@ class SpatialMix_BiV4(nn.Module):
         attn_dim = dim
 
         # self.omni_shift = OmniShift(dim=dim)
-        self.kshift = KManhattanShift(dim, shift_pixel=1)
+        self.kshift = KManhattanShift(shift_pixel=1)
         self.key = nn.Linear(dim, attn_dim, bias=False)
         self.value = nn.Linear(dim, attn_dim, bias=False)
         self.receptance = nn.Linear(dim, attn_dim, bias=False)
@@ -314,8 +317,7 @@ class ChannelMix_V4(nn.Module):
         self.n_embd = dim
         hidden_dim = int(hidden_rate * dim)
 
-        # self.omni_shift = OmniShift(dim=dim)
-        self.kshift = KManhattanShift(dim, shift_pixel=1)
+        self.kshift = KManhattanShift(shift_pixel=1)
         self.key = nn.Linear(dim, hidden_dim, bias=False)
         self.receptance = nn.Linear(dim, dim, bias=False)
         self.value = nn.Linear(hidden_dim, dim, bias=False)
