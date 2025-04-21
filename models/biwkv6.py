@@ -7,6 +7,7 @@ from torch.utils.cpp_extension import load
 from einops import rearrange
 
 HEAD_SIZE = 64
+T_MAX = 256
 
 def load_biwkv6():
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +25,8 @@ def load_biwkv6():
             "-O3",
             "-Xptxas -O3",
             "-gencode arch=compute_86,code=sm_86",
+            f"-D_N_={HEAD_SIZE}",
+            f"-D_T_={T_MAX}",
         ],
     )
     return biwkv6_cuda
@@ -164,62 +167,130 @@ class SpatialMix_BiV6(nn.Module):
         self.dim = dim
         attn_dim = dim
 
+        self.n_head = n_head
+        self.head_size = attn_dim // self.n_head
+        assert self.head_size == HEAD_SIZE
+        self.device = None
+
         self.omni_shift = OmniShift(dim=dim)  # dim = n_embd, attn_dim = attn_sz
         self.key = nn.Linear(dim, attn_dim, bias=False)
         self.value = nn.Linear(dim, attn_dim, bias=False)
         self.receptance = nn.Linear(dim, attn_dim, bias=False)
+        self.gate = nn.Linear(dim, attn_dim, bias=False)
+
         self.output = nn.Linear(attn_dim, dim, bias=False)
 
-        self.decay = nn.Parameter(torch.randn((self.dim,)))
-        self.boost = nn.Parameter(torch.randn((self.dim,)))
+        self.ln_x = nn.GroupNorm(self.n_head, self.attn_sz, eps=1e-5)
+
+        with torch.no_grad():
+            ddd = torch.ones(1, 1, self.dim)
+
+            # fancy time_mix
+            self.time_maa_x = nn.Parameter(torch.randn(1, 1, self.dim))
+            self.time_maa_w = nn.Parameter(torch.randn(1, 1, self.dim))
+            self.time_maa_k = nn.Parameter(torch.randn(1, 1, self.dim))
+            self.time_maa_v = nn.Parameter(torch.randn(1, 1, self.dim))
+            self.time_maa_r = nn.Parameter(torch.randn(1, 1, self.dim))
+            self.time_maa_g = nn.Parameter(torch.randn(1, 1, self.dim))
+
+            TIME_MIX_EXTRA_DIM = 32  # generate TIME_MIX for w,k,v,r,g
+            self.time_maa_w1 = nn.Parameter(torch.zeros(self.dim, TIME_MIX_EXTRA_DIM * 5).uniform_(-1e-4, 1e-4))
+            self.time_maa_w2 = nn.Parameter(torch.zeros(5, TIME_MIX_EXTRA_DIM, self.dim).uniform_(-1e-4, 1e-4))
+
+            # fancy time_decay
+            self.time_decay1 = nn.Parameter(torch.randn(1, 1, attn_dim))
+            self.time_decay2 = nn.Parameter(torch.randn(1, 1, attn_dim))
+
+            TIME_DECAY_EXTRA_DIM = 64
+            self.time_decay_w1_1 = nn.Parameter(torch.zeros(self.dim, TIME_DECAY_EXTRA_DIM).uniform_(-1e-4, 1e-4))
+            self.time_decay_w1_2 = nn.Parameter(torch.zeros(TIME_DECAY_EXTRA_DIM, attn_dim).uniform_(-1e-4, 1e-4))
+            self.time_faaaa_1 = nn.Parameter(torch.randn(self.n_head, self.head_size))
+
+            self.time_decay_w2_1 = nn.Parameter(torch.zeros(self.dim, TIME_DECAY_EXTRA_DIM).uniform_(-1e-4, 1e-4))
+            self.time_decay_w2_2 = nn.Parameter(torch.zeros(TIME_DECAY_EXTRA_DIM, attn_dim).uniform_(-1e-4, 1e-4))
+            self.time_faaaa_2 = nn.Parameter(torch.randn(self.n_head, self.head_size))
 
     def jit_func(self, x, resolution):
+        B, T, C = x.size()
         H, W = resolution
-        x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
-        x = self.omni_shift(x)
-        x = rearrange(x, "b c h w -> b (h w) c")
+        xx = rearrange(x, "B (H W) C -> B C H W", H=H, W=W)
+        xx = self.omni_shift(xx)
+        xx = rearrange(xx, "B C H W -> B (H W) C")
 
-        k = self.key(x)
-        v = self.value(x)
-        r = self.receptance(x)
-        sr = torch.sigmoid(r)
+        xxx = x + xx * self.time_maa_x
+        xxx = torch.tanh(xxx @ self.time_maa_w1).view(B*T, 5, -1).transpose(0, 1)
+        xxx = torch.bmm(xxx, self.time_maa_w2).view(5, B, T, -1)
 
-        return sr, k, v
+        mw, mk, mv, mr, mg = xxx.unbind(dim=0)
+
+        xw = x + xx * (self.time_maa_w + mw)
+        xk = x + xx * (self.time_maa_k + mk)
+        xv = x + xx * (self.time_maa_v + mv)
+        xr = x + xx * (self.time_maa_r + mr)
+        xg = x + xx * (self.time_maa_g + mg)
+
+        k = self.key(xk)
+        v = self.value(xv)
+        r = self.receptance(xr)
+        g = F.silu(self.gate(xg))
+
+        ww1 = torch.tanh(xw @ self.time_decay_w1_1) @ self.time_decay_w1_2  # [B, T, C]
+        w1 = self.time_decay1 + ww1
+
+        ww2 = torch.tanh(xw @ self.time_decay_w2_1) @ self.time_decay_w2_2  # [B, T, C]
+        w2 = self.time_decay2 + ww2
+
+        return r, k, v, g, w1, w2
+
+    def jit_func_2(self, x, g):
+        B, T, C = x.size()
+        x = x.view(B * T, C)
+
+        x = self.ln_x(x).view(B, T, C)
+        x = self.output(x * g)
+        return x
 
     def forward(self, x, resolution):
         B, T, C = x.size()
-        sr, k, v = self.jit_func(x, resolution)
-        x = RUN_BiWKV4(self.decay / T, self.boost / T, k, v)
-        x = sr * x
-        x = self.output(x)
-        return x
+        self.device = x.device
+
+        r, k, v, g, w1, w2 = self.jit_func(x, resolution)
+
+        v = RUN_CUDA_RWKV6(B, T, C, self.n_head, r, k, v, w1, u=self.time_faaaa_1)
+
+        H, W = resolution
+
+        r = rearrange(r, 'B (H W) C -> B (W H) C', H=H, W=W)
+        k = rearrange(k, 'B (H W) C -> B (W H) C', H=H, W=W)
+        v = rearrange(v, 'B (H W) C -> B (W H) C', H=H, W=W)
+
+        v = RUN_CUDA_RWKV6(B, T, C, self.n_head, r, k, v, w2, u=self.time_faaaa_2)
+        x = rearrange(v, 'B (W H) C -> B (H W) C', H=H, W=W)
+
+        return self.jit_func_2(x, g)
 
 
 class ChannelMix_v6(nn.Module):
-    def __init__(self, n_embd, n_layer, layer_id, hidden_rate=4,
+    def __init__(self, dim, hidden_rate=4,
                  key_norm=False):
         super().__init__()
-        self.layer_id = layer_id
-        self.n_layer = n_layer
-        self.n_embd = n_embd
+        self.n_embd = dim
+        hidden_dim = int(hidden_rate * dim)
 
-        hidden_sz = int(hidden_rate * n_embd)
-        self.key = nn.Linear(n_embd, hidden_sz, bias=False)
-
-        self.omni_shift = OmniShift(dim=n_embd)
-
+        self.omni_shift = OmniShift(dim=dim)
+        self.key = nn.Linear(dim, hidden_dim, bias=False)
+        self.receptance = nn.Linear(dim, dim, bias=False)
+        self.value = nn.Linear(hidden_dim, dim, bias=False)
         if key_norm:
-            self.key_norm = nn.LayerNorm(hidden_sz)
+            self.key_norm = nn.LayerNorm(hidden_dim)
         else:
             self.key_norm = None
-        self.receptance = nn.Linear(n_embd, n_embd, bias=False)
-        self.value = nn.Linear(hidden_sz, n_embd, bias=False)
 
     def forward(self, x, resolution):
-        h, w = resolution
-        x = rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
+        H, W = resolution
+        x = rearrange(x, 'B (H W) C -> B C H W', H=H, W=W)
         x = self.omni_shift(x)
-        x = rearrange(x, 'b c h w -> b (h w) c')
+        x = rearrange(x, 'B C H W -> B (H W) C')
 
         k = self.key(x)
         k = torch.square(torch.relu(k))
