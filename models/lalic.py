@@ -174,6 +174,7 @@ def q_shift_singlehead(input, shift_pixel=1):
     # modified single head q_shift from Vision-RWKV
     B, C, H, W = input.shape
     assert C % 4 == 0, "Channel number must be divisible by 4 for 4-way directional shifts."
+    assert C >= 4 * shift_pixel, "Too much shift."
 
     output = torch.zeros_like(input)
 
@@ -252,9 +253,12 @@ def q_shift_singlehead(input, shift_pixel=1):
     return output
 
 
-class KManhattanShift(nn.Module):
+class KMShift(nn.Module):
+    r"""
+    K-Manhattan distance shift, we regard original q-shift as 1-Manhattan distance shift, a specific case.
+    """
     def __init__(self, shift_pixel):
-        super(KManhattanShift, self).__init__()
+        super(KMShift, self).__init__()
         self.shift_pixel = shift_pixel
 
     def forward(self, x):
@@ -279,7 +283,7 @@ class SpatialMix_BiV4(nn.Module):
         attn_dim = dim
 
         # self.omni_shift = OmniShift(dim=dim)
-        self.kshift = KManhattanShift(shift_pixel=1)
+        self.kshift = KMShift(shift_pixel=1)
         self.key = nn.Linear(dim, attn_dim, bias=False)
         self.value = nn.Linear(dim, attn_dim, bias=False)
         self.receptance = nn.Linear(dim, attn_dim, bias=False)
@@ -317,7 +321,7 @@ class ChannelMix_V4(nn.Module):
         self.n_embd = dim
         hidden_dim = int(hidden_rate * dim)
 
-        self.kshift = KManhattanShift(shift_pixel=1)
+        self.kshift = KMShift(shift_pixel=1)
         self.key = nn.Linear(dim, hidden_dim, bias=False)
         self.receptance = nn.Linear(dim, dim, bias=False)
         self.value = nn.Linear(hidden_dim, dim, bias=False)
