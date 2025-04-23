@@ -1,0 +1,1344 @@
+{
+  "name": "LALIC",
+  "description": "LALIC, coding: ans, cuda: True, quality: ['1', '2', '3', '4', '5', '6']",
+  "results": {
+    "enc_time": [
+      0.373501,
+      0.292282,
+      0.291569,
+      0.293033,
+      0.291555,
+      0.295678
+    ],
+    "dec_time": [
+      0.162103,
+      0.163181,
+      0.162321,
+      0.163023,
+      0.163135,
+      0.163605
+    ],
+    "bpp": [
+      0.12536,
+      0.199557,
+      0.302165,
+      0.448517,
+      0.631904,
+      0.875163
+    ],
+    "psnr": [
+      29.049082,
+      30.657366,
+      32.341306,
+      34.101364,
+      35.870355,
+      37.70541
+    ],
+    "ms-ssim": [
+      0.931283,
+      0.952901,
+      0.968493,
+      0.979184,
+      0.986007,
+      0.990581
+    ]
+  },
+  "records": [
+    {
+      "file": "/hy-tmp/Kodak24/kodim01.png",
+      "quality": "1",
+      "enc_time": 2.33104801,
+      "dec_time": 0.17017889,
+      "bpp": 0.16064,
+      "psnr": 25.79625759,
+      "ms-ssim": 0.91874254
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim02.png",
+      "quality": "1",
+      "enc_time": 0.29131794,
+      "dec_time": 0.16115499,
+      "bpp": 0.052608,
+      "psnr": 29.80535583,
+      "ms-ssim": 0.89434481
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim03.png",
+      "quality": "1",
+      "enc_time": 0.28952408,
+      "dec_time": 0.16118813,
+      "bpp": 0.048128,
+      "psnr": 32.30242107,
+      "ms-ssim": 0.95444429
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim04.png",
+      "quality": "1",
+      "enc_time": 0.28516555,
+      "dec_time": 0.1609242,
+      "bpp": 0.052352,
+      "psnr": 30.5271159,
+      "ms-ssim": 0.91394997
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim05.png",
+      "quality": "1",
+      "enc_time": 0.28590822,
+      "dec_time": 0.15988064,
+      "bpp": 0.277504,
+      "psnr": 26.63195581,
+      "ms-ssim": 0.951581
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim06.png",
+      "quality": "1",
+      "enc_time": 0.28604865,
+      "dec_time": 0.16393733,
+      "bpp": 0.139136,
+      "psnr": 27.70822337,
+      "ms-ssim": 0.90828562
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim07.png",
+      "quality": "1",
+      "enc_time": 0.28826928,
+      "dec_time": 0.16277766,
+      "bpp": 0.102016,
+      "psnr": 31.01540408,
+      "ms-ssim": 0.96782464
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim08.png",
+      "quality": "1",
+      "enc_time": 0.28905773,
+      "dec_time": 0.15977049,
+      "bpp": 0.253056,
+      "psnr": 26.59696335,
+      "ms-ssim": 0.96100712
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim09.png",
+      "quality": "1",
+      "enc_time": 0.28787708,
+      "dec_time": 0.15827489,
+      "bpp": 0.070656,
+      "psnr": 32.02626435,
+      "ms-ssim": 0.96910846
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim10.png",
+      "quality": "1",
+      "enc_time": 0.28780651,
+      "dec_time": 0.15790987,
+      "bpp": 0.075648,
+      "psnr": 31.79318711,
+      "ms-ssim": 0.95393002
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim11.png",
+      "quality": "1",
+      "enc_time": 0.28755546,
+      "dec_time": 0.16000414,
+      "bpp": 0.138368,
+      "psnr": 27.93752657,
+      "ms-ssim": 0.91459817
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim12.png",
+      "quality": "1",
+      "enc_time": 0.28548861,
+      "dec_time": 0.16244364,
+      "bpp": 0.0576,
+      "psnr": 30.82330644,
+      "ms-ssim": 0.91255349
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim13.png",
+      "quality": "1",
+      "enc_time": 0.28421402,
+      "dec_time": 0.16656923,
+      "bpp": 0.310016,
+      "psnr": 24.49588647,
+      "ms-ssim": 0.89571035
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim14.png",
+      "quality": "1",
+      "enc_time": 0.2859025,
+      "dec_time": 0.16338801,
+      "bpp": 0.180736,
+      "psnr": 26.98909166,
+      "ms-ssim": 0.91892779
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim15.png",
+      "quality": "1",
+      "enc_time": 0.28985119,
+      "dec_time": 0.1643908,
+      "bpp": 0.070784,
+      "psnr": 29.4451303,
+      "ms-ssim": 0.92088985
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim16.png",
+      "quality": "1",
+      "enc_time": 0.28934264,
+      "dec_time": 0.15927911,
+      "bpp": 0.077312,
+      "psnr": 29.60090246,
+      "ms-ssim": 0.90986651
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim17.png",
+      "quality": "1",
+      "enc_time": 0.29062104,
+      "dec_time": 0.15890956,
+      "bpp": 0.106624,
+      "psnr": 29.60445834,
+      "ms-ssim": 0.9310621
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim18.png",
+      "quality": "1",
+      "enc_time": 0.28950238,
+      "dec_time": 0.15961194,
+      "bpp": 0.176256,
+      "psnr": 27.05638577,
+      "ms-ssim": 0.91430175
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim19.png",
+      "quality": "1",
+      "enc_time": 0.29054117,
+      "dec_time": 0.15924001,
+      "bpp": 0.11136,
+      "psnr": 29.4059988,
+      "ms-ssim": 0.9462899
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim20.png",
+      "quality": "1",
+      "enc_time": 0.29841924,
+      "dec_time": 0.16415167,
+      "bpp": 0.071168,
+      "psnr": 31.13017601,
+      "ms-ssim": 0.96152639
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim21.png",
+      "quality": "1",
+      "enc_time": 0.28561974,
+      "dec_time": 0.16228914,
+      "bpp": 0.152192,
+      "psnr": 28.20604932,
+      "ms-ssim": 0.94915152
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim22.png",
+      "quality": "1",
+      "enc_time": 0.29035425,
+      "dec_time": 0.16509914,
+      "bpp": 0.089856,
+      "psnr": 28.57409119,
+      "ms-ssim": 0.90133512
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim23.png",
+      "quality": "1",
+      "enc_time": 0.28802586,
+      "dec_time": 0.16673326,
+      "bpp": 0.075136,
+      "psnr": 31.7611667,
+      "ms-ssim": 0.95153183
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim24.png",
+      "quality": "1",
+      "enc_time": 0.28655887,
+      "dec_time": 0.16236234,
+      "bpp": 0.159488,
+      "psnr": 27.94463888,
+      "ms-ssim": 0.92983544
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim01.png",
+      "quality": "2",
+      "enc_time": 0.30079746,
+      "dec_time": 0.17022061,
+      "bpp": 0.314112,
+      "psnr": 27.60436896,
+      "ms-ssim": 0.95188296
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim02.png",
+      "quality": "2",
+      "enc_time": 0.29608083,
+      "dec_time": 0.17832088,
+      "bpp": 0.088448,
+      "psnr": 30.94633724,
+      "ms-ssim": 0.91753888
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim03.png",
+      "quality": "2",
+      "enc_time": 0.29424834,
+      "dec_time": 0.16944027,
+      "bpp": 0.076928,
+      "psnr": 33.95380562,
+      "ms-ssim": 0.96828187
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim04.png",
+      "quality": "2",
+      "enc_time": 0.2946651,
+      "dec_time": 0.16375923,
+      "bpp": 0.086016,
+      "psnr": 31.76945886,
+      "ms-ssim": 0.93488687
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim05.png",
+      "quality": "2",
+      "enc_time": 0.29461312,
+      "dec_time": 0.16062212,
+      "bpp": 0.406016,
+      "psnr": 28.54495453,
+      "ms-ssim": 0.97066873
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim06.png",
+      "quality": "2",
+      "enc_time": 0.29240632,
+      "dec_time": 0.16260815,
+      "bpp": 0.237312,
+      "psnr": 29.43616722,
+      "ms-ssim": 0.93952644
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim07.png",
+      "quality": "2",
+      "enc_time": 0.29289007,
+      "dec_time": 0.1616087,
+      "bpp": 0.146432,
+      "psnr": 32.87202592,
+      "ms-ssim": 0.97871947
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim08.png",
+      "quality": "2",
+      "enc_time": 0.29590154,
+      "dec_time": 0.16470122,
+      "bpp": 0.377216,
+      "psnr": 28.46601327,
+      "ms-ssim": 0.97337073
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim09.png",
+      "quality": "2",
+      "enc_time": 0.29106116,
+      "dec_time": 0.16137838,
+      "bpp": 0.102528,
+      "psnr": 33.74182036,
+      "ms-ssim": 0.97663277
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim10.png",
+      "quality": "2",
+      "enc_time": 0.29505849,
+      "dec_time": 0.15897727,
+      "bpp": 0.109312,
+      "psnr": 33.38052593,
+      "ms-ssim": 0.96672094
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim11.png",
+      "quality": "2",
+      "enc_time": 0.29417849,
+      "dec_time": 0.16546392,
+      "bpp": 0.217728,
+      "psnr": 29.51807392,
+      "ms-ssim": 0.93743056
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim12.png",
+      "quality": "2",
+      "enc_time": 0.28977203,
+      "dec_time": 0.15912676,
+      "bpp": 0.092416,
+      "psnr": 32.18523742,
+      "ms-ssim": 0.93756217
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim13.png",
+      "quality": "2",
+      "enc_time": 0.29172421,
+      "dec_time": 0.16102982,
+      "bpp": 0.528384,
+      "psnr": 26.50248269,
+      "ms-ssim": 0.9406907
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim14.png",
+      "quality": "2",
+      "enc_time": 0.28846598,
+      "dec_time": 0.16329122,
+      "bpp": 0.286592,
+      "psnr": 28.6526825,
+      "ms-ssim": 0.94799531
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim15.png",
+      "quality": "2",
+      "enc_time": 0.29278803,
+      "dec_time": 0.15996313,
+      "bpp": 0.120576,
+      "psnr": 30.6759446,
+      "ms-ssim": 0.94121206
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim16.png",
+      "quality": "2",
+      "enc_time": 0.28553367,
+      "dec_time": 0.15890908,
+      "bpp": 0.133376,
+      "psnr": 31.11676405,
+      "ms-ssim": 0.93829608
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim17.png",
+      "quality": "2",
+      "enc_time": 0.28887606,
+      "dec_time": 0.16154575,
+      "bpp": 0.158464,
+      "psnr": 31.07954791,
+      "ms-ssim": 0.95064497
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim18.png",
+      "quality": "2",
+      "enc_time": 0.29172754,
+      "dec_time": 0.16066766,
+      "bpp": 0.293504,
+      "psnr": 29.00049076,
+      "ms-ssim": 0.94787234
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim19.png",
+      "quality": "2",
+      "enc_time": 0.28988171,
+      "dec_time": 0.16111231,
+      "bpp": 0.16704,
+      "psnr": 30.90225783,
+      "ms-ssim": 0.96175063
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim20.png",
+      "quality": "2",
+      "enc_time": 0.29155397,
+      "dec_time": 0.15882063,
+      "bpp": 0.101248,
+      "psnr": 32.37699316,
+      "ms-ssim": 0.97006655
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim21.png",
+      "quality": "2",
+      "enc_time": 0.2908535,
+      "dec_time": 0.15985417,
+      "bpp": 0.23808,
+      "psnr": 29.90065661,
+      "ms-ssim": 0.96433753
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim22.png",
+      "quality": "2",
+      "enc_time": 0.29221606,
+      "dec_time": 0.17408419,
+      "bpp": 0.153088,
+      "psnr": 30.03117254,
+      "ms-ssim": 0.93245924
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim23.png",
+      "quality": "2",
+      "enc_time": 0.29061985,
+      "dec_time": 0.1590147,
+      "bpp": 0.104704,
+      "psnr": 33.28457728,
+      "ms-ssim": 0.96446842
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim24.png",
+      "quality": "2",
+      "enc_time": 0.28884602,
+      "dec_time": 0.16182923,
+      "bpp": 0.249856,
+      "psnr": 29.83443533,
+      "ms-ssim": 0.95661825
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim01.png",
+      "quality": "3",
+      "enc_time": 0.30203676,
+      "dec_time": 0.17164397,
+      "bpp": 0.534144,
+      "psnr": 29.66463175,
+      "ms-ssim": 0.97190303
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim02.png",
+      "quality": "3",
+      "enc_time": 0.29148006,
+      "dec_time": 0.16950822,
+      "bpp": 0.152448,
+      "psnr": 32.32655487,
+      "ms-ssim": 0.94041991
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim03.png",
+      "quality": "3",
+      "enc_time": 0.29178452,
+      "dec_time": 0.16324067,
+      "bpp": 0.113024,
+      "psnr": 35.51116108,
+      "ms-ssim": 0.97604263
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim04.png",
+      "quality": "3",
+      "enc_time": 0.29693842,
+      "dec_time": 0.16101217,
+      "bpp": 0.142848,
+      "psnr": 33.16032134,
+      "ms-ssim": 0.9548828
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim05.png",
+      "quality": "3",
+      "enc_time": 0.29306221,
+      "dec_time": 0.16183758,
+      "bpp": 0.571136,
+      "psnr": 30.56094448,
+      "ms-ssim": 0.98283339
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim06.png",
+      "quality": "3",
+      "enc_time": 0.29441142,
+      "dec_time": 0.16099262,
+      "bpp": 0.368,
+      "psnr": 31.2386828,
+      "ms-ssim": 0.9615109
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim07.png",
+      "quality": "3",
+      "enc_time": 0.29070926,
+      "dec_time": 0.16499138,
+      "bpp": 0.199552,
+      "psnr": 34.61704002,
+      "ms-ssim": 0.98550642
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim08.png",
+      "quality": "3",
+      "enc_time": 0.29382062,
+      "dec_time": 0.16154909,
+      "bpp": 0.527872,
+      "psnr": 30.26636173,
+      "ms-ssim": 0.98084754
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim09.png",
+      "quality": "3",
+      "enc_time": 0.29047513,
+      "dec_time": 0.160923,
+      "bpp": 0.140416,
+      "psnr": 35.13160454,
+      "ms-ssim": 0.98082447
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim10.png",
+      "quality": "3",
+      "enc_time": 0.29246664,
+      "dec_time": 0.16011906,
+      "bpp": 0.153088,
+      "psnr": 34.92201904,
+      "ms-ssim": 0.97674644
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim11.png",
+      "quality": "3",
+      "enc_time": 0.29100084,
+      "dec_time": 0.16129947,
+      "bpp": 0.335744,
+      "psnr": 31.29366868,
+      "ms-ssim": 0.96083009
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim12.png",
+      "quality": "3",
+      "enc_time": 0.28682947,
+      "dec_time": 0.16035295,
+      "bpp": 0.146432,
+      "psnr": 33.52627217,
+      "ms-ssim": 0.9552471
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim13.png",
+      "quality": "3",
+      "enc_time": 0.28827477,
+      "dec_time": 0.16170049,
+      "bpp": 0.823296,
+      "psnr": 28.67978378,
+      "ms-ssim": 0.96828955
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim14.png",
+      "quality": "3",
+      "enc_time": 0.28679156,
+      "dec_time": 0.16476059,
+      "bpp": 0.43712,
+      "psnr": 30.52785804,
+      "ms-ssim": 0.96777505
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim15.png",
+      "quality": "3",
+      "enc_time": 0.28672981,
+      "dec_time": 0.16054893,
+      "bpp": 0.200064,
+      "psnr": 32.20534092,
+      "ms-ssim": 0.95800483
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim16.png",
+      "quality": "3",
+      "enc_time": 0.29009986,
+      "dec_time": 0.16053557,
+      "bpp": 0.21312,
+      "psnr": 32.70097733,
+      "ms-ssim": 0.95884562
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim17.png",
+      "quality": "3",
+      "enc_time": 0.29310918,
+      "dec_time": 0.16144562,
+      "bpp": 0.23232,
+      "psnr": 32.67705653,
+      "ms-ssim": 0.96669167
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim18.png",
+      "quality": "3",
+      "enc_time": 0.29302883,
+      "dec_time": 0.16145372,
+      "bpp": 0.434816,
+      "psnr": 30.76456968,
+      "ms-ssim": 0.96602333
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim19.png",
+      "quality": "3",
+      "enc_time": 0.29114389,
+      "dec_time": 0.1612215,
+      "bpp": 0.24448,
+      "psnr": 32.42898414,
+      "ms-ssim": 0.97255707
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim20.png",
+      "quality": "3",
+      "enc_time": 0.2928443,
+      "dec_time": 0.16032505,
+      "bpp": 0.160896,
+      "psnr": 34.08521722,
+      "ms-ssim": 0.98004073
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim21.png",
+      "quality": "3",
+      "enc_time": 0.29206181,
+      "dec_time": 0.16325283,
+      "bpp": 0.353408,
+      "psnr": 31.70463859,
+      "ms-ssim": 0.97521293
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim22.png",
+      "quality": "3",
+      "enc_time": 0.29229522,
+      "dec_time": 0.16114616,
+      "bpp": 0.252672,
+      "psnr": 31.6381827,
+      "ms-ssim": 0.95513982
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim23.png",
+      "quality": "3",
+      "enc_time": 0.28715539,
+      "dec_time": 0.16054964,
+      "bpp": 0.149376,
+      "psnr": 34.78998999,
+      "ms-ssim": 0.9744978
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim24.png",
+      "quality": "3",
+      "enc_time": 0.2891016,
+      "dec_time": 0.1612885,
+      "bpp": 0.365696,
+      "psnr": 31.76947976,
+      "ms-ssim": 0.97316766
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim01.png",
+      "quality": "4",
+      "enc_time": 0.30460978,
+      "dec_time": 0.16812944,
+      "bpp": 0.824576,
+      "psnr": 31.84714934,
+      "ms-ssim": 0.98349774
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim02.png",
+      "quality": "4",
+      "enc_time": 0.29234529,
+      "dec_time": 0.16313767,
+      "bpp": 0.269184,
+      "psnr": 33.93147573,
+      "ms-ssim": 0.960814
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim03.png",
+      "quality": "4",
+      "enc_time": 0.29079652,
+      "dec_time": 0.16078162,
+      "bpp": 0.16896,
+      "psnr": 37.00511846,
+      "ms-ssim": 0.98261034
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim04.png",
+      "quality": "4",
+      "enc_time": 0.2910881,
+      "dec_time": 0.16059613,
+      "bpp": 0.24128,
+      "psnr": 34.72649492,
+      "ms-ssim": 0.97039545
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim05.png",
+      "quality": "4",
+      "enc_time": 0.29506612,
+      "dec_time": 0.16259813,
+      "bpp": 0.788864,
+      "psnr": 32.57769292,
+      "ms-ssim": 0.98964727
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim06.png",
+      "quality": "4",
+      "enc_time": 0.29201913,
+      "dec_time": 0.16589761,
+      "bpp": 0.549504,
+      "psnr": 33.20041984,
+      "ms-ssim": 0.97561884
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim07.png",
+      "quality": "4",
+      "enc_time": 0.2915051,
+      "dec_time": 0.16122317,
+      "bpp": 0.27648,
+      "psnr": 36.41093175,
+      "ms-ssim": 0.99004352
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim08.png",
+      "quality": "4",
+      "enc_time": 0.29565859,
+      "dec_time": 0.16264868,
+      "bpp": 0.747904,
+      "psnr": 32.12326201,
+      "ms-ssim": 0.98721743
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim09.png",
+      "quality": "4",
+      "enc_time": 0.29209566,
+      "dec_time": 0.16980553,
+      "bpp": 0.1984,
+      "psnr": 36.63084298,
+      "ms-ssim": 0.98547268
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim10.png",
+      "quality": "4",
+      "enc_time": 0.29273081,
+      "dec_time": 0.16079473,
+      "bpp": 0.213248,
+      "psnr": 36.31316996,
+      "ms-ssim": 0.9823817
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim11.png",
+      "quality": "4",
+      "enc_time": 0.29761052,
+      "dec_time": 0.16234875,
+      "bpp": 0.506624,
+      "psnr": 33.10840104,
+      "ms-ssim": 0.9750495
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim12.png",
+      "quality": "4",
+      "enc_time": 0.28757048,
+      "dec_time": 0.1616056,
+      "bpp": 0.232704,
+      "psnr": 35.03350762,
+      "ms-ssim": 0.96966857
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim13.png",
+      "quality": "4",
+      "enc_time": 0.29161954,
+      "dec_time": 0.16376877,
+      "bpp": 1.1872,
+      "psnr": 30.91214201,
+      "ms-ssim": 0.98205924
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim14.png",
+      "quality": "4",
+      "enc_time": 0.29084945,
+      "dec_time": 0.16414571,
+      "bpp": 0.644864,
+      "psnr": 32.43370856,
+      "ms-ssim": 0.98022956
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim15.png",
+      "quality": "4",
+      "enc_time": 0.29146934,
+      "dec_time": 0.16436434,
+      "bpp": 0.327552,
+      "psnr": 33.82255831,
+      "ms-ssim": 0.97139949
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim16.png",
+      "quality": "4",
+      "enc_time": 0.29332614,
+      "dec_time": 0.16195941,
+      "bpp": 0.34048,
+      "psnr": 34.49473921,
+      "ms-ssim": 0.97371185
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim17.png",
+      "quality": "4",
+      "enc_time": 0.29315162,
+      "dec_time": 0.16171193,
+      "bpp": 0.342912,
+      "psnr": 34.35934785,
+      "ms-ssim": 0.97842157
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim18.png",
+      "quality": "4",
+      "enc_time": 0.29364443,
+      "dec_time": 0.16272593,
+      "bpp": 0.628992,
+      "psnr": 32.61560768,
+      "ms-ssim": 0.97788763
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim19.png",
+      "quality": "4",
+      "enc_time": 0.29157996,
+      "dec_time": 0.16523051,
+      "bpp": 0.3712,
+      "psnr": 34.12110345,
+      "ms-ssim": 0.98135364
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim20.png",
+      "quality": "4",
+      "enc_time": 0.29227257,
+      "dec_time": 0.16120768,
+      "bpp": 0.249856,
+      "psnr": 35.79730114,
+      "ms-ssim": 0.98608816
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim21.png",
+      "quality": "4",
+      "enc_time": 0.29132152,
+      "dec_time": 0.16098666,
+      "bpp": 0.51584,
+      "psnr": 33.6628216,
+      "ms-ssim": 0.98234022
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim22.png",
+      "quality": "4",
+      "enc_time": 0.29470396,
+      "dec_time": 0.16268039,
+      "bpp": 0.404608,
+      "psnr": 33.34667255,
+      "ms-ssim": 0.97007459
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim23.png",
+      "quality": "4",
+      "enc_time": 0.2926116,
+      "dec_time": 0.16215539,
+      "bpp": 0.2144,
+      "psnr": 36.3550374,
+      "ms-ssim": 0.98186588
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim24.png",
+      "quality": "4",
+      "enc_time": 0.29315257,
+      "dec_time": 0.16205192,
+      "bpp": 0.518784,
+      "psnr": 33.60322072,
+      "ms-ssim": 0.98257631
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim01.png",
+      "quality": "5",
+      "enc_time": 0.30180621,
+      "dec_time": 0.16893125,
+      "bpp": 1.159552,
+      "psnr": 34.09539078,
+      "ms-ssim": 0.98992795
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim02.png",
+      "quality": "5",
+      "enc_time": 0.29322004,
+      "dec_time": 0.16179371,
+      "bpp": 0.427776,
+      "psnr": 35.6196861,
+      "ms-ssim": 0.97418875
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim03.png",
+      "quality": "5",
+      "enc_time": 0.28857732,
+      "dec_time": 0.16242385,
+      "bpp": 0.245632,
+      "psnr": 38.61631721,
+      "ms-ssim": 0.98776215
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim04.png",
+      "quality": "5",
+      "enc_time": 0.28816915,
+      "dec_time": 0.16528296,
+      "bpp": 0.374912,
+      "psnr": 36.29615431,
+      "ms-ssim": 0.98020697
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim05.png",
+      "quality": "5",
+      "enc_time": 0.28899074,
+      "dec_time": 0.16325164,
+      "bpp": 1.045632,
+      "psnr": 34.54529181,
+      "ms-ssim": 0.9936446
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim06.png",
+      "quality": "5",
+      "enc_time": 0.28797483,
+      "dec_time": 0.16262269,
+      "bpp": 0.777344,
+      "psnr": 35.22236853,
+      "ms-ssim": 0.98474133
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim07.png",
+      "quality": "5",
+      "enc_time": 0.29463744,
+      "dec_time": 0.16223001,
+      "bpp": 0.373376,
+      "psnr": 38.08065902,
+      "ms-ssim": 0.99289858
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim08.png",
+      "quality": "5",
+      "enc_time": 0.2942183,
+      "dec_time": 0.16816926,
+      "bpp": 1.0208,
+      "psnr": 34.01635793,
+      "ms-ssim": 0.9910931
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim09.png",
+      "quality": "5",
+      "enc_time": 0.29175806,
+      "dec_time": 0.16267037,
+      "bpp": 0.270848,
+      "psnr": 37.87613298,
+      "ms-ssim": 0.98786181
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim10.png",
+      "quality": "5",
+      "enc_time": 0.29220843,
+      "dec_time": 0.16127825,
+      "bpp": 0.291712,
+      "psnr": 37.58279351,
+      "ms-ssim": 0.98619425
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim11.png",
+      "quality": "5",
+      "enc_time": 0.29422951,
+      "dec_time": 0.16411161,
+      "bpp": 0.728064,
+      "psnr": 35.06237467,
+      "ms-ssim": 0.98417366
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim12.png",
+      "quality": "5",
+      "enc_time": 0.29108334,
+      "dec_time": 0.16105843,
+      "bpp": 0.361856,
+      "psnr": 36.65540279,
+      "ms-ssim": 0.98003167
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim13.png",
+      "quality": "5",
+      "enc_time": 0.29411125,
+      "dec_time": 0.164361,
+      "bpp": 1.599488,
+      "psnr": 33.22746635,
+      "ms-ssim": 0.98962629
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim14.png",
+      "quality": "5",
+      "enc_time": 0.29145217,
+      "dec_time": 0.16283083,
+      "bpp": 0.906496,
+      "psnr": 34.32610061,
+      "ms-ssim": 0.98761559
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim15.png",
+      "quality": "5",
+      "enc_time": 0.29165769,
+      "dec_time": 0.16425896,
+      "bpp": 0.498048,
+      "psnr": 35.49689769,
+      "ms-ssim": 0.98029184
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim16.png",
+      "quality": "5",
+      "enc_time": 0.29024291,
+      "dec_time": 0.16127753,
+      "bpp": 0.502784,
+      "psnr": 36.33977165,
+      "ms-ssim": 0.98345661
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim17.png",
+      "quality": "5",
+      "enc_time": 0.29163289,
+      "dec_time": 0.16221428,
+      "bpp": 0.487168,
+      "psnr": 36.01331881,
+      "ms-ssim": 0.98605537
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim18.png",
+      "quality": "5",
+      "enc_time": 0.29565811,
+      "dec_time": 0.16449165,
+      "bpp": 0.865536,
+      "psnr": 34.45526995,
+      "ms-ssim": 0.9850316
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim19.png",
+      "quality": "5",
+      "enc_time": 0.29108834,
+      "dec_time": 0.16240549,
+      "bpp": 0.534784,
+      "psnr": 35.80369601,
+      "ms-ssim": 0.98683232
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim20.png",
+      "quality": "5",
+      "enc_time": 0.29204869,
+      "dec_time": 0.16101766,
+      "bpp": 0.366848,
+      "psnr": 37.51318114,
+      "ms-ssim": 0.98979771
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim21.png",
+      "quality": "5",
+      "enc_time": 0.28877616,
+      "dec_time": 0.16259909,
+      "bpp": 0.711424,
+      "psnr": 35.59050473,
+      "ms-ssim": 0.98680103
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim22.png",
+      "quality": "5",
+      "enc_time": 0.28720427,
+      "dec_time": 0.16169238,
+      "bpp": 0.612864,
+      "psnr": 35.21555351,
+      "ms-ssim": 0.98076743
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim23.png",
+      "quality": "5",
+      "enc_time": 0.28828979,
+      "dec_time": 0.16097856,
+      "bpp": 0.30016,
+      "psnr": 37.79052308,
+      "ms-ssim": 0.98678607
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim24.png",
+      "quality": "5",
+      "enc_time": 0.28829265,
+      "dec_time": 0.16329837,
+      "bpp": 0.702592,
+      "psnr": 35.44730897,
+      "ms-ssim": 0.98838204
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim01.png",
+      "quality": "6",
+      "enc_time": 0.30376863,
+      "dec_time": 0.16926622,
+      "bpp": 1.554048,
+      "psnr": 36.43173829,
+      "ms-ssim": 0.99398488
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim02.png",
+      "quality": "6",
+      "enc_time": 0.29193711,
+      "dec_time": 0.16250634,
+      "bpp": 0.660352,
+      "psnr": 37.39304155,
+      "ms-ssim": 0.9832108
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim03.png",
+      "quality": "6",
+      "enc_time": 0.29659867,
+      "dec_time": 0.16153717,
+      "bpp": 0.36096,
+      "psnr": 40.20640968,
+      "ms-ssim": 0.99134052
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim04.png",
+      "quality": "6",
+      "enc_time": 0.29416895,
+      "dec_time": 0.16223216,
+      "bpp": 0.575872,
+      "psnr": 37.97080912,
+      "ms-ssim": 0.98698986
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim05.png",
+      "quality": "6",
+      "enc_time": 0.29472232,
+      "dec_time": 0.16279817,
+      "bpp": 1.382784,
+      "psnr": 36.64134224,
+      "ms-ssim": 0.99608773
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim06.png",
+      "quality": "6",
+      "enc_time": 0.29412985,
+      "dec_time": 0.16244912,
+      "bpp": 1.063296,
+      "psnr": 37.33258854,
+      "ms-ssim": 0.9904871
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim07.png",
+      "quality": "6",
+      "enc_time": 0.29261446,
+      "dec_time": 0.16142392,
+      "bpp": 0.50816,
+      "psnr": 39.75735322,
+      "ms-ssim": 0.99486297
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim08.png",
+      "quality": "6",
+      "enc_time": 0.29632425,
+      "dec_time": 0.16632485,
+      "bpp": 1.406208,
+      "psnr": 36.08691498,
+      "ms-ssim": 0.99462223
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim09.png",
+      "quality": "6",
+      "enc_time": 0.29316568,
+      "dec_time": 0.16392541,
+      "bpp": 0.375808,
+      "psnr": 39.08074819,
+      "ms-ssim": 0.98972189
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim10.png",
+      "quality": "6",
+      "enc_time": 0.294873,
+      "dec_time": 0.16199899,
+      "bpp": 0.410624,
+      "psnr": 38.8694471,
+      "ms-ssim": 0.98910618
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim11.png",
+      "quality": "6",
+      "enc_time": 0.29533029,
+      "dec_time": 0.16284204,
+      "bpp": 1.020928,
+      "psnr": 37.12935528,
+      "ms-ssim": 0.99032873
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim12.png",
+      "quality": "6",
+      "enc_time": 0.29370928,
+      "dec_time": 0.16162729,
+      "bpp": 0.544768,
+      "psnr": 38.3712536,
+      "ms-ssim": 0.98682469
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim13.png",
+      "quality": "6",
+      "enc_time": 0.30873656,
+      "dec_time": 0.1674087,
+      "bpp": 2.083328,
+      "psnr": 35.68027262,
+      "ms-ssim": 0.99395096
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim14.png",
+      "quality": "6",
+      "enc_time": 0.29380679,
+      "dec_time": 0.16307783,
+      "bpp": 1.251456,
+      "psnr": 36.40940649,
+      "ms-ssim": 0.99250853
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim15.png",
+      "quality": "6",
+      "enc_time": 0.29452062,
+      "dec_time": 0.16259074,
+      "bpp": 0.740736,
+      "psnr": 37.31159913,
+      "ms-ssim": 0.98712635
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim16.png",
+      "quality": "6",
+      "enc_time": 0.29236674,
+      "dec_time": 0.16521311,
+      "bpp": 0.716544,
+      "psnr": 38.28261643,
+      "ms-ssim": 0.98931664
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim17.png",
+      "quality": "6",
+      "enc_time": 0.29761434,
+      "dec_time": 0.16449857,
+      "bpp": 0.694144,
+      "psnr": 37.72835648,
+      "ms-ssim": 0.99077952
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim18.png",
+      "quality": "6",
+      "enc_time": 0.2945416,
+      "dec_time": 0.16330385,
+      "bpp": 1.174912,
+      "psnr": 36.33502498,
+      "ms-ssim": 0.98984742
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim19.png",
+      "quality": "6",
+      "enc_time": 0.29757643,
+      "dec_time": 0.16433096,
+      "bpp": 0.765184,
+      "psnr": 37.55564433,
+      "ms-ssim": 0.99059868
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim20.png",
+      "quality": "6",
+      "enc_time": 0.29339886,
+      "dec_time": 0.16121697,
+      "bpp": 0.512896,
+      "psnr": 39.17236132,
+      "ms-ssim": 0.99194354
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim21.png",
+      "quality": "6",
+      "enc_time": 0.29363036,
+      "dec_time": 0.16268015,
+      "bpp": 0.94848,
+      "psnr": 37.49466854,
+      "ms-ssim": 0.99016786
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim22.png",
+      "quality": "6",
+      "enc_time": 0.29980135,
+      "dec_time": 0.16254473,
+      "bpp": 0.875392,
+      "psnr": 37.09165485,
+      "ms-ssim": 0.98712009
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim23.png",
+      "quality": "6",
+      "enc_time": 0.29109049,
+      "dec_time": 0.16448355,
+      "bpp": 0.42176,
+      "psnr": 39.19458477,
+      "ms-ssim": 0.99034828
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim24.png",
+      "quality": "6",
+      "enc_time": 0.2978375,
+      "dec_time": 0.16624117,
+      "bpp": 0.955264,
+      "psnr": 37.40264031,
+      "ms-ssim": 0.99266422
+    }
+  ]
+}

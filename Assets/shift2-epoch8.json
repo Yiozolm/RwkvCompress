@@ -1,0 +1,266 @@
+{
+  "name": "LALIC",
+  "description": "LALIC, coding: ans, cuda: True, lambda: 0.0018",
+  "results": {
+    "enc_time": [
+      0.508326
+    ],
+    "dec_time": [
+      0.331564
+    ],
+    "bpp": [
+      0.131573
+    ],
+    "psnr": [
+      28.532456
+    ],
+    "ms-ssim": [
+      0.929978
+    ],
+    "ms-ssim-db": [
+      11.805718
+    ]
+  },
+  "records": [
+    {
+      "file": "/hy-tmp/Kodak24/kodim01.png",
+      "quality": "1",
+      "enc_time": 1.48115325,
+      "dec_time": 0.3365376,
+      "bpp": 0.184192,
+      "psnr": 25.74518538,
+      "ms-ssim": 0.9219991,
+      "ms-ssim-db": 11.07900369
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim02.png",
+      "quality": "1",
+      "enc_time": 0.46709871,
+      "dec_time": 0.32924271,
+      "bpp": 0.062464,
+      "psnr": 29.63536141,
+      "ms-ssim": 0.89496076,
+      "ms-ssim-db": 9.78648434
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim03.png",
+      "quality": "1",
+      "enc_time": 0.4655602,
+      "dec_time": 0.33363247,
+      "bpp": 0.055296,
+      "psnr": 31.87276706,
+      "ms-ssim": 0.95373601,
+      "ms-ssim-db": 13.34756888
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim04.png",
+      "quality": "1",
+      "enc_time": 0.46661758,
+      "dec_time": 0.3287921,
+      "bpp": 0.059264,
+      "psnr": 30.32586793,
+      "ms-ssim": 0.91201949,
+      "ms-ssim-db": 10.55613531
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim05.png",
+      "quality": "1",
+      "enc_time": 0.46772051,
+      "dec_time": 0.333287,
+      "bpp": 0.284288,
+      "psnr": 25.83237226,
+      "ms-ssim": 0.94902414,
+      "ms-ssim-db": 12.92635446
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim06.png",
+      "quality": "1",
+      "enc_time": 0.46789789,
+      "dec_time": 0.33096504,
+      "bpp": 0.141952,
+      "psnr": 27.26725727,
+      "ms-ssim": 0.90784168,
+      "ms-ssim-db": 10.35465462
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim07.png",
+      "quality": "1",
+      "enc_time": 0.46569586,
+      "dec_time": 0.33362412,
+      "bpp": 0.11392,
+      "psnr": 30.43847362,
+      "ms-ssim": 0.96410531,
+      "ms-ssim-db": 14.4496977
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim08.png",
+      "quality": "1",
+      "enc_time": 0.47130132,
+      "dec_time": 0.33221936,
+      "bpp": 0.267136,
+      "psnr": 25.65748059,
+      "ms-ssim": 0.95843673,
+      "ms-ssim-db": 13.81290266
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim09.png",
+      "quality": "1",
+      "enc_time": 0.46756482,
+      "dec_time": 0.33368134,
+      "bpp": 0.079232,
+      "psnr": 31.50892721,
+      "ms-ssim": 0.96810168,
+      "ms-ssim-db": 14.96232193
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim10.png",
+      "quality": "1",
+      "enc_time": 0.46772099,
+      "dec_time": 0.3311708,
+      "bpp": 0.082432,
+      "psnr": 31.18543446,
+      "ms-ssim": 0.94968981,
+      "ms-ssim-db": 12.98344004
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim11.png",
+      "quality": "1",
+      "enc_time": 0.46780849,
+      "dec_time": 0.33160925,
+      "bpp": 0.141184,
+      "psnr": 27.52062275,
+      "ms-ssim": 0.91254508,
+      "ms-ssim-db": 10.58215778
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim12.png",
+      "quality": "1",
+      "enc_time": 0.46765447,
+      "dec_time": 0.33157706,
+      "bpp": 0.069376,
+      "psnr": 30.64697722,
+      "ms-ssim": 0.91632861,
+      "ms-ssim-db": 10.77423011
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim13.png",
+      "quality": "1",
+      "enc_time": 0.46363878,
+      "dec_time": 0.33126044,
+      "bpp": 0.275072,
+      "psnr": 23.56709557,
+      "ms-ssim": 0.89498448,
+      "ms-ssim-db": 9.78746528
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim14.png",
+      "quality": "1",
+      "enc_time": 0.46985316,
+      "dec_time": 0.33084154,
+      "bpp": 0.191744,
+      "psnr": 26.5639829,
+      "ms-ssim": 0.91947973,
+      "ms-ssim-db": 10.94094765
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim15.png",
+      "quality": "1",
+      "enc_time": 0.46230388,
+      "dec_time": 0.33207178,
+      "bpp": 0.075776,
+      "psnr": 28.97831196,
+      "ms-ssim": 0.91021514,
+      "ms-ssim-db": 10.46796887
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim16.png",
+      "quality": "1",
+      "enc_time": 0.46366215,
+      "dec_time": 0.32926178,
+      "bpp": 0.083072,
+      "psnr": 29.40682347,
+      "ms-ssim": 0.91038156,
+      "ms-ssim-db": 10.47602599
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim17.png",
+      "quality": "1",
+      "enc_time": 0.4648757,
+      "dec_time": 0.33019614,
+      "bpp": 0.107904,
+      "psnr": 29.13314694,
+      "ms-ssim": 0.92946374,
+      "ms-ssim-db": 11.51587597
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim18.png",
+      "quality": "1",
+      "enc_time": 0.46661258,
+      "dec_time": 0.33130288,
+      "bpp": 0.177152,
+      "psnr": 26.4239912,
+      "ms-ssim": 0.91506362,
+      "ms-ssim-db": 10.70906251
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim19.png",
+      "quality": "1",
+      "enc_time": 0.4646678,
+      "dec_time": 0.33312678,
+      "bpp": 0.130944,
+      "psnr": 28.91624849,
+      "ms-ssim": 0.94610441,
+      "ms-ssim-db": 12.68446748
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim20.png",
+      "quality": "1",
+      "enc_time": 0.46525431,
+      "dec_time": 0.33026838,
+      "bpp": 0.078976,
+      "psnr": 30.45126985,
+      "ms-ssim": 0.96002686,
+      "ms-ssim-db": 13.98231738
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim21.png",
+      "quality": "1",
+      "enc_time": 0.46617436,
+      "dec_time": 0.33027172,
+      "bpp": 0.154624,
+      "psnr": 27.70223665,
+      "ms-ssim": 0.94773406,
+      "ms-ssim-db": 12.81781217
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim22.png",
+      "quality": "1",
+      "enc_time": 0.46372795,
+      "dec_time": 0.33024406,
+      "bpp": 0.100864,
+      "psnr": 28.30953771,
+      "ms-ssim": 0.90082633,
+      "ms-ssim-db": 10.03603637
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim23.png",
+      "quality": "1",
+      "enc_time": 0.46245551,
+      "dec_time": 0.33274174,
+      "bpp": 0.08064,
+      "psnr": 31.03153512,
+      "ms-ssim": 0.9485752,
+      "ms-ssim-db": 12.88827377
+    },
+    {
+      "file": "/hy-tmp/Kodak24/kodim24.png",
+      "quality": "1",
+      "enc_time": 0.4628129,
+      "dec_time": 0.329602,
+      "bpp": 0.160256,
+      "psnr": 26.65804284,
+      "ms-ssim": 0.92782307,
+      "ms-ssim-db": 11.41601575
+    }
+  ]
+}
