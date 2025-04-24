@@ -6,8 +6,10 @@ import torch.nn.functional as F
 from torch.utils.cpp_extension import load
 from einops import rearrange
 
-HEAD_SIZE = 64
-T_MAX = 256
+
+HEAD_SIZE = 32
+T_MAX = 128 * 128  # for training on 256x256 crop
+# T_MAX = 1024 * 1024  # for inference
 
 def load_biwkv6():
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -76,6 +78,135 @@ class BiWKV6(torch.autograd.Function):
 
 def RUN_CUDA_RWKV6(B, T, C, H, r, k, v, w, u):
     return BiWKV6.apply(B, T, C, H, r, k, v, w, u)
+
+def q_shift_singlehead(input, shift_pixel=1):
+    # modified single head q_shift from Vision-RWKV
+    B, C, H, W = input.shape
+    assert C % 4 == 0, "Channel number must be divisible by 4 for 4-way directional shifts."
+    assert C >= 4 * shift_pixel, "Too much shift."
+
+    output = torch.zeros_like(input)
+
+    # Total Split: Four shift direction * Manhattan Distance
+    Channel_per_group = C // 4
+    Channel_splits = Channel_per_group // shift_pixel
+
+    # some problem
+    def singleShift(horizontal, vertical, shift_direction):
+        assert horizontal + vertical == shift_pixel, 'Invalid shift length.'
+        assert shift_direction in (0, 1, 2, 3), 'Only four shift directions are supported.'
+        r'''
+        The direction of movement must be strictly clockwise.
+        For example, for shift_direction == 0, that is shift up, the vertical shift is obviously up, and we want the horizontal shift is right. 
+        '''
+        if shift_direction == 0:  # shift up
+            if horizontal == 0:  # Consider the case of non-divisibility.
+                output[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
+                        (shift_direction + 1) * Channel_per_group), 0:H - vertical, horizontal:] = \
+                    input[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
+                            (shift_direction + 1) * Channel_per_group), vertical:, 0:W - horizontal]
+            else:
+                output[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
+                        shift_direction * Channel_per_group + vertical * Channel_splits), 0:H - vertical,
+                horizontal:] = \
+                    input[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
+                            shift_direction * Channel_per_group + vertical * Channel_splits), vertical:,
+                    0:W - horizontal]
+        elif shift_direction == 1:  # shift right
+            if vertical == 0:
+                output[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
+                        (shift_direction + 1) * Channel_per_group), vertical:, horizontal:] = \
+                    input[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
+                            (shift_direction + 1) * Channel_per_group), 0:H - vertical, 0:W - horizontal]
+            else:
+                output[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
+                        shift_direction * Channel_per_group + horizontal * Channel_splits), vertical:,
+                horizontal:] = \
+                    input[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
+                            shift_direction * Channel_per_group + horizontal * Channel_splits), 0:H - vertical,
+                    0:W - horizontal]
+        elif shift_direction == 2:  # shift down
+            if horizontal == 0:
+                output[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
+                        (shift_direction + 1) * Channel_per_group), vertical:, 0:W - horizontal] = \
+                    input[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
+                            (shift_direction + 1) * Channel_per_group), 0:H - vertical, horizontal:]
+            else:
+                output[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
+                        shift_direction * Channel_per_group + vertical * Channel_splits), vertical:,
+                0:W - horizontal] = \
+                    input[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
+                            shift_direction * Channel_per_group + vertical * Channel_splits), 0:H - vertical,
+                    horizontal:]
+        else:
+            if vertical == 0:  # shift left
+                output[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):, 0:H - vertical,
+                0:W - horizontal] = \
+                    input[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):, vertical:,
+                    horizontal:]
+            else:
+                output[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
+                        shift_direction * Channel_per_group + horizontal * Channel_splits), 0:H - vertical,
+                0:W - horizontal] = \
+                    input[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
+                            shift_direction * Channel_per_group + horizontal * Channel_splits), vertical:,
+                    horizontal:]
+
+    for i in range(4):
+        for j in range(1, shift_pixel + 1):
+            if i in (0, 2):
+                singleShift(horizontal=shift_pixel - j, vertical=j, shift_direction=i)
+            elif i in (1, 3):
+                singleShift(horizontal=j, vertical=shift_pixel - j, shift_direction=i)
+
+    return output
+
+
+class KMShift(nn.Module):
+    r"""
+    K-Manhattan distance shift, we regard original q-shift as 1-Manhattan distance shift, a specific case.
+    """
+    def __init__(self, dim, shift_pixel, init_mode='fancy'):
+        super(KMShift, self).__init__()
+        self.dim = dim
+        self.shift_pixel = shift_pixel
+        # init weight
+        self._init_weights(init_mode)
+        ddd = torch.ones(1, 1, self.dim)
+        for i in range(self.dim):
+            ddd[0, 0, i] = i / self.dim
+        self.time_maa_x = nn.Parameter(ddd, requires_grad=True)
+
+    def _init_weights(self, init_mode):
+        if init_mode == 'fancy':
+            with torch.no_grad():
+                ratio = torch.randn((1, ))
+                ddd = torch.ones(1, self.dim, 1, 1) # [B, C, H, W]
+                for i in range(self.dim):
+                    ddd[0, i, 0, 0] = i / self.dim
+                self.mix = nn.Parameter(torch.pow(ddd, ratio))
+        else:
+            raise NotImplementedError
+
+    def forward(self, x, shiftmode='Spatial'):
+        assert shiftmode.lower() in ('spatial', 'channel'), 'Invalid shift mode'
+        output = torch.zeros_like(x)
+
+        for i in range(1, self.shift_pixel + 1):
+            xx = q_shift_singlehead(x, shift_pixel=i)
+            # mutli linear interpolation
+            xx = xx * torch.pow(1 - self.mix, i)
+            if i != self.shift_pixel:
+                xx = xx * self.mix_k
+            output = output + xx
+        if shiftmode.lower() == 'spatial':
+            output = output - x
+        elif shiftmode.lower() == 'channel':
+            output = output + x * self.mix
+        else:
+            raise NotImplementedError
+
+        return output
 
 
 class OmniShift(nn.Module):
@@ -162,17 +293,17 @@ class OmniShift(nn.Module):
 
 
 class SpatialMix_BiV6(nn.Module):
-    def __init__(self, dim, n_head):
+    def __init__(self, dim):
         super().__init__()
         self.dim = dim
         attn_dim = dim
 
-        self.n_head = n_head
-        self.head_size = attn_dim // self.n_head
-        assert self.head_size == HEAD_SIZE
+        self.head_size = HEAD_SIZE
+        self.n_head = self.dim // self.head_size
+        assert self.dim % self.head_size == 0, 'rectify your HEADSIZE'
         self.device = None
 
-        self.omni_shift = OmniShift(dim=dim)  # dim = n_embd, attn_dim = attn_sz
+        self.shift = KMShift(dim=dim, shift_pixel=1)  # dim = n_embd, attn_dim = attn_sz
         self.key = nn.Linear(dim, attn_dim, bias=False)
         self.value = nn.Linear(dim, attn_dim, bias=False)
         self.receptance = nn.Linear(dim, attn_dim, bias=False)
@@ -180,7 +311,7 @@ class SpatialMix_BiV6(nn.Module):
 
         self.output = nn.Linear(attn_dim, dim, bias=False)
 
-        self.ln_x = nn.GroupNorm(self.n_head, self.attn_sz, eps=1e-5)
+        self.ln_x = nn.GroupNorm(self.n_head, self.attn_dim, eps=1e-5)
 
         with torch.no_grad():
             ddd = torch.ones(1, 1, self.dim)
@@ -214,7 +345,7 @@ class SpatialMix_BiV6(nn.Module):
         B, T, C = x.size()
         H, W = resolution
         xx = rearrange(x, "B (H W) C -> B C H W", H=H, W=W)
-        xx = self.omni_shift(xx)
+        xx = self.shift(xx, shiftmode='Spatial')
         xx = rearrange(xx, "B C H W -> B (H W) C")
 
         xxx = x + xx * self.time_maa_x
@@ -277,7 +408,7 @@ class ChannelMix_v6(nn.Module):
         self.n_embd = dim
         hidden_dim = int(hidden_rate * dim)
 
-        self.omni_shift = OmniShift(dim=dim)
+        self.shift = KMShift(dim=dim, shift_pixel=1)
         self.key = nn.Linear(dim, hidden_dim, bias=False)
         self.receptance = nn.Linear(dim, dim, bias=False)
         self.value = nn.Linear(hidden_dim, dim, bias=False)
@@ -289,14 +420,14 @@ class ChannelMix_v6(nn.Module):
     def forward(self, x, resolution):
         H, W = resolution
         x = rearrange(x, 'B (H W) C -> B C H W', H=H, W=W)
-        x = self.omni_shift(x)
-        x = rearrange(x, 'B C H W -> B (H W) C')
+        x = self.shift(x, shiftmode='Channel')
 
         k = self.key(x)
         k = torch.square(torch.relu(k))
+
         if self.key_norm is not None:
             k = self.key_norm(k)
         kv = self.value(k)
         x = torch.sigmoid(self.receptance(x)) * kv
-
+        x = rearrange(x, 'B C H W -> B (H W) C')
         return x
