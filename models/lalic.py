@@ -257,20 +257,21 @@ class KMShift(nn.Module):
     r"""
     K-Manhattan distance shift, we regard original q-shift as 1-Manhattan distance shift, a specific case.
     """
-    def __init__(self, shift_pixel):
+    def __init__(self, dim, shift_pixel):
         super(KMShift, self).__init__()
+        self.dim = dim
         self.shift_pixel = shift_pixel
+        # init weight
+        ddd = torch.ones(1, 1, self.dim)
+        for i in range(self.dim):
+            ddd[0, 0, i] = i / self.dim
+        self.time_maa_x = nn.Parameter(ddd, requires_grad=True)
 
     def forward(self, x):
-        _, C, _, _ = x.size()
-        ddd = torch.ones(1, C, 1, 1).to(x.device)
-        for i in range(self.dim):
-            ddd[0, i, 0, 0] = 1. - i / C
-        self.time_maa_x = nn.Parameter(ddd)
         output = x
 
         for i in range(1, self.shift_pixel + 1):
-            xx = q_shift_singlehead(x, shift_pixel=i) - x
+            xx = q_shift_singlehead(x, shift_pixel=i)
             output += torch.pow(self.time_maa_x, i) * xx
 
         return output
@@ -282,8 +283,7 @@ class SpatialMix_BiV4(nn.Module):
         self.dim = dim
         attn_dim = dim
 
-        # self.omni_shift = OmniShift(dim=dim)
-        self.kshift = KMShift(shift_pixel=1)
+        self.kshift = KMShift(dim=dim, shift_pixel=1)
         self.key = nn.Linear(dim, attn_dim, bias=False)
         self.value = nn.Linear(dim, attn_dim, bias=False)
         self.receptance = nn.Linear(dim, attn_dim, bias=False)
@@ -294,10 +294,10 @@ class SpatialMix_BiV4(nn.Module):
 
     def jit_func(self, x, resolution):
         H, W = resolution
-        x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
+        # x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
         # x = self.omni_shift(x)
         x = self.kshift(x)
-        x = rearrange(x, "b c h w -> b (h w) c")
+        # x = rearrange(x, "b c h w -> b (h w) c")
 
         k = self.key(x)
         v = self.value(x)
@@ -321,17 +321,17 @@ class ChannelMix_V4(nn.Module):
         self.n_embd = dim
         hidden_dim = int(hidden_rate * dim)
 
-        self.kshift = KMShift(shift_pixel=1)
+        self.kshift = KMShift(dim=dim, shift_pixel=1)
         self.key = nn.Linear(dim, hidden_dim, bias=False)
         self.receptance = nn.Linear(dim, dim, bias=False)
         self.value = nn.Linear(hidden_dim, dim, bias=False)
 
     def forward(self, x, resolution):
         H, W = resolution
-        x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
+        # x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
         # x = self.omni_shift(x)
         x = self.kshift(x)
-        x = rearrange(x, "b c h w -> b (h w) c")
+        # x = rearrange(x, "b c h w -> b (h w) c")
 
         k = self.key(x)
         k = torch.square(torch.relu(k))
