@@ -1,10 +1,28 @@
 import os
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.cpp_extension import load
 from einops import rearrange
+
+from compressai.registry import register_model
+from compressai.models import Elic2022Official
+from compressai.entropy_models import EntropyBottleneck
+from compressai.latent_codecs import (
+    ChannelGroupsLatentCodec,
+    CheckerboardLatentCodec,
+    GaussianConditionalLatentCodec,
+    HyperLatentCodec,
+    HyperpriorLatentCodec,
+)
+from compressai.layers import (
+    CheckerboardMaskedConv2d,
+    conv1x1,
+    conv3x3,
+    sequential_channel_ramp,
+)
+
+from .lalic import conv, deconv, form_modules, EntropyParametersBlock
 
 HEAD_SIZE = 16  # origin:64
 T_MAX = 128 * 128  # for training on 256x256 crop
@@ -12,10 +30,9 @@ T_MAX = 128 * 128  # for training on 256x256 crop
 
 # T_MAX = 1024 * 1024  # for inference
 
-def load_biwkv6():
-    current_file_dir = os.path.dirname(os.path.abspath(__file__))
-    biwkv6_cuda = load(
-        name="biwkv6",
+current_file_dir = os.path.dirname(os.path.abspath(__file__))
+wkv6_cuda = load(
+        name="wkv6",
         sources=[
             os.path.join(current_file_dir, "cuda_v6/wkv6_op.cpp"),
             os.path.join(current_file_dir, "cuda_v6/wkv6_cuda.cu"),
@@ -32,7 +49,7 @@ def load_biwkv6():
             f"-D_T_={T_MAX}",
         ],
     )
-    return biwkv6_cuda
+
 
 
 class BiWKV6(torch.autograd.Function):
@@ -53,7 +70,7 @@ class BiWKV6(torch.autograd.Function):
             ctx.save_for_backward(r, k, v, ew, u)
             y = torch.empty((B, T, C), device=r.device, dtype=torch.float32,
                             memory_format=torch.contiguous_format)  #.uniform_(-100, 100)
-            torch.ops.biwkv6_cuda.forward(B, T, C, H, r, k, v, ew, u, y)
+            wkv6_cuda.forward(B, T, C, H, r, k, v, ew, u, y)
             return y
 
     @staticmethod
@@ -70,7 +87,7 @@ class BiWKV6(torch.autograd.Function):
             gv = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
             gw = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
             gu = torch.empty((B, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
-            torch.opsbiwkv6_cuda.backward(B, T, C, H, r, k, v, ew, u, gy, gr, gk, gv, gw, gu)
+            wkv6_cuda.backward(B, T, C, H, r, k, v, ew, u, gy, gr, gk, gv, gw, gu)
             # print("Shape of gu before sum:", gu.shape)
             # print("Value of H:", H)
             # print("Value of C:", C)
@@ -427,6 +444,7 @@ class ChannelMix_V6(nn.Module):
         H, W = resolution
         x = rearrange(x, 'B (H W) C -> B C H W', H=H, W=W)
         x = self.shift(x, shiftmode='Channel')
+        x = rearrange(x, 'B C H W -> B (H W) C')
 
         k = self.key(x)
         k = torch.square(torch.relu(k))
@@ -435,5 +453,166 @@ class ChannelMix_V6(nn.Module):
             k = self.key_norm(k)
         kv = self.value(k)
         x = torch.sigmoid(self.receptance(x)) * kv
-        x = rearrange(x, 'B C H W -> B (H W) C')
+
         return x
+
+class RwkvBlock_BiV6(nn.Module):
+    def __init__(self, dim, hidden_rate=4, with_ckpt=False):
+        super().__init__()
+        self.with_ckpt = with_ckpt
+
+        self.ln1 = nn.LayerNorm(dim)
+        self.ln2 = nn.LayerNorm(dim)
+        self.att = SpatialMix_BiV6(dim)
+        self.ffn = ChannelMix_V6(dim, hidden_rate)
+        self.gamma1 = nn.Parameter(torch.ones((dim)), requires_grad=True)
+        self.gamma2 = nn.Parameter(torch.ones((dim)), requires_grad=True)
+
+    def _forward(self, x):
+        B, C, H, W = x.shape
+        resolution = (H, W)
+
+        x = rearrange(x, "b c h w -> b (h w) c")
+        x = x + self.gamma1 * self.att(self.ln1(x), resolution)
+        x = x + self.gamma2 * self.ffn(self.ln2(x), resolution)
+        x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
+        return x
+
+    def forward(self, x):
+        if self.with_ckpt and x.requires_grad:
+            return torch.utils.checkpoint.checkpoint(
+                self._forward, x, use_reentrant=False
+            )
+        else:
+            return self._forward(x)
+
+@register_model("LALICv6")
+class LALICv6(Elic2022Official):
+    def __init__(
+            self,
+            N=128,
+            M=320,
+            dims=[96, 144, 256, 320, 256, 192],
+            depths=[2, 4, 6, 6],
+            groups=None,
+            use_ckpt=False,
+            **kwargs,
+    ):
+        super().__init__(N=N, M=M, groups=groups, **kwargs)
+        # self.N = N
+        # self.M = M
+        N1, N2, N3, N4, N5, N6 = dims
+        L1, L2, L3, L4 = depths
+        M = N4
+
+        # flatten the list
+        self.g_a = form_modules(
+            conv(3, N1, kernel_size=5),
+            [RwkvBlock_BiV6(N1) for _ in range(L1)],
+            conv(N1, N2, kernel_size=3),
+            [RwkvBlock_BiV6(N2) for i in range(L2)],
+            conv(N2, N3, kernel_size=3),
+            [RwkvBlock_BiV6(N3) for _ in range(L3)],
+            conv(N3, N4, kernel_size=3),
+        )
+
+        self.g_s = form_modules(
+            deconv(N4, N3, kernel_size=3),
+            [RwkvBlock_BiV6(N3) for _ in range(L3)],
+            deconv(N3, N2, kernel_size=3),
+            [RwkvBlock_BiV6(N2) for _ in range(L2)],
+            deconv(N2, N1, kernel_size=3),
+            [RwkvBlock_BiV6(N1) for _ in range(L1)],
+            deconv(N1, 3, kernel_size=5),
+        )
+
+        self.h_a = form_modules(
+            conv(N4, N5, kernel_size=5),
+            [RwkvBlock_BiV6(N5) for _ in range(L4)],
+            conv(N5, N6, kernel_size=5),
+        )
+
+        self.h_s = form_modules(
+            deconv(N6, N5, kernel_size=5),
+            [RwkvBlock_BiV6(N5) for _ in range(L4)],
+            deconv(N5, N4, kernel_size=5),
+        )
+
+        # In [He2022], this is labeled "g_ch^(k)".
+        channel_context = {
+            f"y{k}": nn.Sequential(
+                conv3x3(sum(self.groups[:k]), M),
+                RwkvBlock_BiV4(M, hidden_rate=8),
+                RwkvBlock_BiV4(M, hidden_rate=8),
+                conv1x1(M, self.groups[k] * 2),
+            )
+            for k in range(1, len(self.groups))
+        }
+
+        # In [He2022], this is labeled "g_sp^(k)". Same as ELIC
+        spatial_context = [
+            CheckerboardMaskedConv2d(
+                self.groups[k],
+                self.groups[k] * 2,
+                kernel_size=5,
+                stride=1,
+                padding=2,
+            )
+            for k in range(len(self.groups))
+        ]
+
+        # In [He2022], this is labeled "Param Aggregation".
+        param_aggregation = [
+            sequential_channel_ramp(
+                # Input: spatial context, channel context, and hyper params.
+                self.groups[k] * 2 + (k > 0) * self.groups[k] * 2 + M,
+                self.groups[k] * 2,
+                min_ch=N * 2,
+                num_layers=3,
+                make_layer=EntropyParametersBlock,  # two differences
+                make_act=nn.Identity,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+            )
+            for k in range(len(self.groups))
+        ]
+
+        # In [He2022], this is labeled the space-channel context model (SCCTX).
+        # The side params and channel context params are computed externally.
+        scctx_latent_codec = {
+            f"y{k}": CheckerboardLatentCodec(
+                latent_codec={
+                    "y": GaussianConditionalLatentCodec(quantizer="ste"),
+                },
+                context_prediction=spatial_context[k],
+                entropy_parameters=param_aggregation[k],
+            )
+            for k in range(len(self.groups))
+        }
+
+        # [He2022] uses a "hyperprior" architecture, which reconstructs y using z.
+        self.latent_codec = HyperpriorLatentCodec(
+            latent_codec={
+                # Channel groups with space-channel context model (SCCTX):
+                "y": ChannelGroupsLatentCodec(
+                    groups=self.groups,
+                    channel_context=channel_context,
+                    latent_codec=scctx_latent_codec,
+                ),
+                # Side information branch containing z:
+                "hyper": HyperLatentCodec(
+                    entropy_bottleneck=EntropyBottleneck(N6),
+                    h_a=self.h_a,
+                    h_s=self.h_s,
+                    quantizer="ste",
+                ),
+            },
+        )
+
+    @classmethod
+    def from_state_dict(cls, state_dict, strict=True):
+        """Return a new model instance from `state_dict`."""
+        net = cls()
+        net.load_state_dict(state_dict, strict=strict)
+        return net

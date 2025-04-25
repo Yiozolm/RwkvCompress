@@ -21,7 +21,7 @@ from compressai.layers import (
     sequential_channel_ramp,
 )
 
-from .biwkv6 import load_biwkv6, SpatialMix_BiV6, ChannelMix_V6
+from .lalicv6 import SpatialMix_BiV6, ChannelMix_V6
 
 def load_biwkv4():
     # Bi-directional WKV version 4, a form of linear attention 
