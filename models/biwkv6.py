@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch.utils.cpp_extension import load
 from einops import rearrange
 
-HEAD_SIZE = 32
+HEAD_SIZE = 16  # origin:64
 T_MAX = 128 * 128  # for training on 256x256 crop
 
 
@@ -305,7 +305,7 @@ class SpatialMix_BiV6(nn.Module):
 
         self.head_size = HEAD_SIZE
         self.n_head = self.dim // self.head_size
-        assert self.dim % self.head_size == 0, 'rectify your HEADSIZE'
+        assert self.dim == self.head_size * self.n_head, f'Total dim:{self.dim},n_head:{self.n_head},head_size:{self.head_size},rectify your HEADSIZE'
         self.device = None
 
         self.shift = KMShift(dim=dim, shift_pixel=1)  # dim = n_embd, attn_dim = attn_sz
@@ -407,7 +407,7 @@ class SpatialMix_BiV6(nn.Module):
         return self.jit_func_2(x, g)
 
 
-class ChannelMix_v6(nn.Module):
+class ChannelMix_V6(nn.Module):
     def __init__(self, dim, hidden_rate=4,
                  key_norm=False):
         super().__init__()

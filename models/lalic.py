@@ -21,6 +21,7 @@ from compressai.layers import (
     sequential_channel_ramp,
 )
 
+from .biwkv6 import load_biwkv6, SpatialMix_BiV6, ChannelMix_V6
 
 def load_biwkv4():
     # Bi-directional WKV version 4, a form of linear attention 
@@ -277,7 +278,7 @@ class KMShift(nn.Module):
         return output
 
 
-class SpatialMix_BiV4(nn.Module):
+class SpatialMix_BiV6(nn.Module):
     def __init__(self, dim):
         super().__init__()
         self.dim = dim
@@ -294,10 +295,10 @@ class SpatialMix_BiV4(nn.Module):
 
     def jit_func(self, x, resolution):
         H, W = resolution
-        # x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
+        x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
         # x = self.omni_shift(x)
         x = self.kshift(x)
-        # x = rearrange(x, "b c h w -> b (h w) c")
+        x = rearrange(x, "b c h w -> b (h w) c")
 
         k = self.key(x)
         v = self.value(x)
@@ -315,7 +316,7 @@ class SpatialMix_BiV4(nn.Module):
         return x
 
 
-class ChannelMix_V4(nn.Module):
+class ChannelMix_V6(nn.Module):
     def __init__(self, dim, hidden_rate=4):
         super().__init__()
         self.n_embd = dim
@@ -328,10 +329,10 @@ class ChannelMix_V4(nn.Module):
 
     def forward(self, x, resolution):
         H, W = resolution
-        # x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
+        x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
         # x = self.omni_shift(x)
         x = self.kshift(x)
-        # x = rearrange(x, "b c h w -> b (h w) c")
+        x = rearrange(x, "b c h w -> b (h w) c")
 
         k = self.key(x)
         k = torch.square(torch.relu(k))
@@ -347,8 +348,8 @@ class RwkvBlock_BiV4(nn.Module):
 
         self.ln1 = nn.LayerNorm(dim)
         self.ln2 = nn.LayerNorm(dim)
-        self.att = SpatialMix_BiV4(dim)
-        self.ffn = ChannelMix_V4(dim, hidden_rate)
+        self.att = SpatialMix_BiV6(dim)
+        self.ffn = ChannelMix_V6(dim, hidden_rate)
         self.gamma1 = nn.Parameter(torch.ones((dim)), requires_grad=True)
         self.gamma2 = nn.Parameter(torch.ones((dim)), requires_grad=True)
 
