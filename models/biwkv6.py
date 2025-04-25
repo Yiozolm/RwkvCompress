@@ -6,9 +6,10 @@ import torch.nn.functional as F
 from torch.utils.cpp_extension import load
 from einops import rearrange
 
-
 HEAD_SIZE = 32
 T_MAX = 128 * 128  # for training on 256x256 crop
+
+
 # T_MAX = 1024 * 1024  # for inference
 
 def load_biwkv6():
@@ -16,8 +17,8 @@ def load_biwkv6():
     biwkv6_cuda = load(
         name="biwkv6",
         sources=[
-            os.path.join(current_file_dir, "cuda/biwkv6_op.cpp"),
-            os.path.join(current_file_dir, "cuda/biwkv6_cuda.cu"),
+            os.path.join(current_file_dir, "cuda_v6/wkv6_op.cpp"),
+            os.path.join(current_file_dir, "cuda_v6/wkv6_cuda.cu"),
         ],
         verbose=True,
         extra_cuda_cflags=[
@@ -50,7 +51,8 @@ class BiWKV6(torch.autograd.Function):
             assert u.is_contiguous()
             ew = (-torch.exp(w.float())).contiguous()
             ctx.save_for_backward(r, k, v, ew, u)
-            y = torch.empty((B, T, C), device=r.device, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
+            y = torch.empty((B, T, C), device=r.device, dtype=torch.float32,
+                            memory_format=torch.contiguous_format)  #.uniform_(-100, 100)
             torch.ops.biwkv6_cuda.forward(B, T, C, H, r, k, v, ew, u, y)
             return y
 
@@ -72,12 +74,13 @@ class BiWKV6(torch.autograd.Function):
             # print("Shape of gu before sum:", gu.shape)
             # print("Value of H:", H)
             # print("Value of C:", C)
-            gu = torch.sum(gu, 0).view(H, C//H)
+            gu = torch.sum(gu, 0).view(H, C // H)
             return (None, None, None, None, gr, gk, gv, gw, gu)
 
 
 def RUN_CUDA_RWKV6(B, T, C, H, r, k, v, w, u):
     return BiWKV6.apply(B, T, C, H, r, k, v, w, u)
+
 
 def q_shift_singlehead(input, shift_pixel=1):
     # modified single head q_shift from Vision-RWKV
@@ -166,6 +169,7 @@ class KMShift(nn.Module):
     r"""
     K-Manhattan distance shift, we regard original q-shift as 1-Manhattan distance shift, a specific case.
     """
+
     def __init__(self, dim, shift_pixel, init_mode='fancy'):
         super(KMShift, self).__init__()
         self.dim = dim
@@ -178,15 +182,15 @@ class KMShift(nn.Module):
         self.time_maa_x = nn.Parameter(ddd, requires_grad=True)
 
     def _init_weights(self, init_mode):
-        if init_mode == 'fancy':
-            with torch.no_grad():
-                ratio = torch.randn((1, ))
-                ddd = torch.ones(1, self.dim, 1, 1) # [B, C, H, W]
-                for i in range(self.dim):
-                    ddd[0, i, 0, 0] = i / self.dim
-                self.mix = nn.Parameter(torch.pow(ddd, ratio))
-        else:
-            raise NotImplementedError
+        # if init_mode == 'fancy':
+        with torch.no_grad():
+            ratio = torch.randn((1,))
+            ddd = torch.ones(1, self.dim, 1, 1)  # [B, C, H, W]
+            for i in range(self.dim):
+                ddd[0, i, 0, 0] = i / self.dim
+            self.mix = nn.Parameter(torch.pow(ddd, ratio))
+        # else:
+        #     raise NotImplementedError
 
     def forward(self, x, shiftmode='Spatial'):
         assert shiftmode.lower() in ('spatial', 'channel'), 'Invalid shift mode'
@@ -194,7 +198,8 @@ class KMShift(nn.Module):
 
         for i in range(1, self.shift_pixel + 1):
             xx = q_shift_singlehead(x, shift_pixel=i)
-            # mutli linear interpolation
+            # maybe infinite context
+            # mutli linear interpolation, replace the shift1 right in RWKV6 paper with multi directions & distance shift
             xx = xx * torch.pow(1 - self.mix, i)
             if i != self.shift_pixel:
                 xx = xx * self.mix_k
@@ -313,8 +318,9 @@ class SpatialMix_BiV6(nn.Module):
 
         self.ln_x = nn.GroupNorm(self.n_head, self.attn_dim, eps=1e-5)
 
+        # vrwkv in restore-rwkv
         with torch.no_grad():
-            ddd = torch.ones(1, 1, self.dim)
+            # ddd = torch.ones(1, 1, self.dim)
 
             # fancy time_mix
             self.time_maa_x = nn.Parameter(torch.randn(1, 1, self.dim))
@@ -349,7 +355,7 @@ class SpatialMix_BiV6(nn.Module):
         xx = rearrange(xx, "B C H W -> B (H W) C")
 
         xxx = x + xx * self.time_maa_x
-        xxx = torch.tanh(xxx @ self.time_maa_w1).view(B*T, 5, -1).transpose(0, 1)
+        xxx = torch.tanh(xxx @ self.time_maa_w1).view(B * T, 5, -1).transpose(0, 1)
         xxx = torch.bmm(xxx, self.time_maa_w2).view(5, B, T, -1)
 
         mw, mk, mv, mr, mg = xxx.unbind(dim=0)
