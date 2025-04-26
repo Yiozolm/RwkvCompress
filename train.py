@@ -19,7 +19,7 @@ from compressai.datasets import ImageFolder
 from compressai.zoo import models
 from pytorch_msssim import ms_ssim
 
-from models import LALIC
+from models import LALIC, LALICv6
 from torch.utils.tensorboard import SummaryWriter
 import os
 
@@ -372,7 +372,7 @@ def main(argv):
         pin_memory=(device == "cuda"),
     )
 
-    net = LALIC(
+    net = LALICv6(
         dims=[96, 144, 256, 320, 256, 192],
         depths=[2, 4, 6, 6],
     )

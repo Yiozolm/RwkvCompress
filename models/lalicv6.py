@@ -325,7 +325,8 @@ class SpatialMix_BiV6(nn.Module):
         assert self.dim == self.head_size * self.n_head, f'Total dim:{self.dim},n_head:{self.n_head},head_size:{self.head_size},rectify your HEADSIZE'
         self.device = None
 
-        self.shift = KMShift(dim=dim, shift_pixel=1)  # dim = n_embd, attn_dim = attn_sz
+        # self.shift = KMShift(dim=dim, shift_pixel=1)  # dim = n_embd, attn_dim = attn_sz
+        self.shift = OmniShift(dim=dim)
         self.key = nn.Linear(dim, attn_dim, bias=False)
         self.value = nn.Linear(dim, attn_dim, bias=False)
         self.receptance = nn.Linear(dim, attn_dim, bias=False)
@@ -368,7 +369,8 @@ class SpatialMix_BiV6(nn.Module):
         B, T, C = x.size()
         H, W = resolution
         xx = rearrange(x, "B (H W) C -> B C H W", H=H, W=W)
-        xx = self.shift(xx, shiftmode='Spatial')
+        # xx = self.shift(xx, shiftmode='Spatial')
+        xx = self.shift(xx)
         xx = rearrange(xx, "B C H W -> B (H W) C")
 
         xxx = x + xx * self.time_maa_x
@@ -443,7 +445,8 @@ class ChannelMix_V6(nn.Module):
     def forward(self, x, resolution):
         H, W = resolution
         x = rearrange(x, 'B (H W) C -> B C H W', H=H, W=W)
-        x = self.shift(x, shiftmode='Channel')
+        # x = self.shift(x, shiftmode='Channel')
+        x = self.shift(x)
         x = rearrange(x, 'B C H W -> B (H W) C')
 
         k = self.key(x)
