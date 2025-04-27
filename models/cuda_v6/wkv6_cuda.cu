@@ -23,7 +23,8 @@ __global__ void kernel_forward(const int B, const int T, const int C, const int 
     for (int t = (b+1)*T*C + h*_N_ + i - C; t >= b*T*C + h*_N_ + i; t -= C)
     {
         __syncthreads();
-        w[i] = exp(_w[t]);
+//         w[i] = exp(_w[t]);
+        w[i] = __expf(-__expf(float(_w[t])));
         r[i] = float(_r[t]);
         k[i] = float(_k[t]);
         __syncthreads();
@@ -59,7 +60,8 @@ __global__ void kernel_forward(const int B, const int T, const int C, const int 
     for (int t = b*T*C + h*_N_ + i; t < (b+1)*T*C + h*_N_ + i; t += C)
     {
         __syncthreads();
-        w[i] = exp(_w[t]);
+//         w[i] = exp(_w[t]);
+        w[i] = __expf(-__expf(float(_w[t])));
         r[i] = float(_r[t]);
         k[i] = float(_k[t]);
         __syncthreads();
@@ -130,7 +132,8 @@ __global__ void kernel_backward_111(const int B, const int T, const int C, const
         v[i] = float(_v[t]);
         gy[i] = float(_gy[t]);
         k[i] = float(_k[t]);
-        w_[i] = exp(_w[t]);
+//         w_[i] = exp(_w[t]);
+        w[i] = __expf(-__expf(float(_w[t])));
         __syncthreads();
         float gr = 0, gu_ = 0, gk = 0, gv = 0;;
 
@@ -169,7 +172,8 @@ __global__ void kernel_backward_111(const int B, const int T, const int C, const
 
         const float rr = float(_r[t]);
         const float k = float(_k[t]);
-        const float w = exp(_w[t]);
+//         const float w = exp(_w[t]);
+        const float w = __expf(-__expf(float(_w[t])));
         float gk = 0, gr = 0;
         #pragma unroll
         for (int j = 0; j < _N_; j++)
@@ -192,7 +196,8 @@ __global__ void kernel_backward_111(const int B, const int T, const int C, const
         __syncthreads();
         r[i] = float(_r[t]);
         k[i] = float(_k[t]);
-        w_[i] = exp(_w[t]);
+//         w_[i] = exp(_w[t]);
+        w_[i] = __expf(-__expf(float(_w[t])));
         __syncthreads();
 
         const float gyy = float(_gy[t]);
@@ -236,7 +241,8 @@ __global__ void kernel_backward_222(const int B, const int T, const int C, const
         __syncthreads();
 
         const float r = float(_r[t]);
-        const float w = exp(_w[t-C]);
+//      const float w = exp(_w[t-C]);
+        const float w = __expf(-__expf(float(_w[t-C])));
         float sum = 0.0f;
 
         #pragma unroll
@@ -252,7 +258,7 @@ __global__ void kernel_backward_222(const int B, const int T, const int C, const
 
     float sss = sbbbb[0];
     _gw[t_0] = 0;
-    _gw[t_1] = F(sss * _w[t_1]);
+    _gw[t_1] = F(sss * -__expf(float(_w[t_1])));
 
     for (int t = t_2; t < t_T_1; t += C)
     {
@@ -261,7 +267,8 @@ __global__ void kernel_backward_222(const int B, const int T, const int C, const
         v[i] = float(_v[t-2*C]);
         __syncthreads();
 
-        const float w = exp(_w[t-C]);
+//      const float w = exp(_w[t-C]);
+        const float w = __expf(-__expf(float(_w[t-C])));
         const float k = float(_k[t-2*C]);
         float sum = 0.0f;
 
@@ -274,7 +281,8 @@ __global__ void kernel_backward_222(const int B, const int T, const int C, const
             sum += s * gy[j];
         }
         sss += sbbbb[(t-t_1)/C] - (sum * float(_r[t]));
-        _gw[t] = F(sss * _w[t]);
+//         _gw[t] = F(sss * _w[t]);
+        _gw[t] = F(sss * -__expf(float(_w[t])));
     }
     _gw[t_T_1] = 0;
 }
@@ -304,7 +312,8 @@ __global__ void kernel_backward_333(const int B, const int T, const int C, const
         __syncthreads();
 
         const float r = float(_r[t]);
-        const float w = exp(_w[t+C]);
+//         const float w = exp(_w[t+C]);
+        const float w = __expf(-__expf(float(_w[t+C]));
         float sum = 0.0f;
 
         #pragma unroll
@@ -319,7 +328,7 @@ __global__ void kernel_backward_333(const int B, const int T, const int C, const
     }
 
     float sss = sbbbb[0];
-    _gw[t_T_2] += F(sss * _w[t_T_2]);
+    _gw[t_T_2] += F(sss * -__expf(float(_w[t_T_2])));
 
     for (int t = t_T_3; t > t_0; t -= C)
     {
@@ -328,7 +337,7 @@ __global__ void kernel_backward_333(const int B, const int T, const int C, const
         v[i] = float(_v[t+2*C]);
         __syncthreads();
 
-        const float w = exp(_w[t+C]);
+        const float w = __expf(-__expf(float(_w[t+C])));
         const float k = float(_k[t+2*C]);
         float sum = 0.0f;
 
@@ -341,7 +350,7 @@ __global__ void kernel_backward_333(const int B, const int T, const int C, const
             sum += s * gy[j];
         }
         sss += sbbbb[(t_T_2-t)/C] - (sum * float(_r[t]));
-        _gw[t] += F(sss * _w[t]);
+        _gw[t] += F(sss * -__expf(float(_w[t])));
     }
 }
 

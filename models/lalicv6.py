@@ -66,11 +66,11 @@ class BiWKV6(torch.autograd.Function):
             assert v.is_contiguous()
             assert w.is_contiguous()
             assert u.is_contiguous()
-            ew = (-torch.exp(w.float())).contiguous()
-            ctx.save_for_backward(r, k, v, ew, u)
+            # ew = (-torch.exp(w.float())).contiguous()
+            ctx.save_for_backward(r, k, v, w, u)
             y = torch.empty((B, T, C), device=r.device, dtype=torch.float32,
                             memory_format=torch.contiguous_format)  #.uniform_(-100, 100)
-            wkv6_cuda.forward(B, T, C, H, r, k, v, ew, u, y)
+            wkv6_cuda.forward(B, T, C, H, r, k, v, w, u, y)
             return y
 
     @staticmethod
@@ -81,13 +81,13 @@ class BiWKV6(torch.autograd.Function):
             C = ctx.C
             H = ctx.H
             assert gy.is_contiguous()
-            r, k, v, ew, u = ctx.saved_tensors
+            r, k, v, w, u = ctx.saved_tensors
             gr = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
             gk = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
             gv = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
             gw = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
             gu = torch.empty((B, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
-            wkv6_cuda.backward(B, T, C, H, r, k, v, ew, u, gy, gr, gk, gv, gw, gu)
+            wkv6_cuda.backward(B, T, C, H, r, k, v, w, u, gy, gr, gk, gv, gw, gu)
             # print("Shape of gu before sum:", gu.shape)
             # print("Value of H:", H)
             # print("Value of C:", C)
