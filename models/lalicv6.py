@@ -433,7 +433,8 @@ class ChannelMix_V6(nn.Module):
         self.n_embd = dim
         hidden_dim = int(hidden_rate * dim)
 
-        self.shift = KMShift(dim=dim, shift_pixel=1)
+        # self.shift = KMShift(dim=dim, shift_pixel=1)  # KMshift has come trouble and leed in nan
+        self.shift = OmniShift(dim=dim)
         self.key = nn.Linear(dim, hidden_dim, bias=False)
         self.receptance = nn.Linear(dim, dim, bias=False)
         self.value = nn.Linear(hidden_dim, dim, bias=False)
@@ -458,6 +459,7 @@ class ChannelMix_V6(nn.Module):
         x = torch.sigmoid(self.receptance(x)) * kv
 
         return x
+
 
 class RwkvBlock_BiV6(nn.Module):
     def __init__(self, dim, hidden_rate=4, with_ckpt=False):
