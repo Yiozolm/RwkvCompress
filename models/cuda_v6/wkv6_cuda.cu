@@ -133,7 +133,7 @@ __global__ void kernel_backward_111(const int B, const int T, const int C, const
         gy[i] = float(_gy[t]);
         k[i] = float(_k[t]);
 //         w_[i] = exp(_w[t]);
-        w[i] = __expf(-__expf(float(_w[t])));
+        w_[i] = __expf(-__expf(float(_w[t])));
         __syncthreads();
         float gr = 0, gu_ = 0, gk = 0, gv = 0;;
 
@@ -313,7 +313,7 @@ __global__ void kernel_backward_333(const int B, const int T, const int C, const
 
         const float r = float(_r[t]);
 //         const float w = exp(_w[t+C]);
-        const float w = __expf(-__expf(float(_w[t+C]));
+        const float w = __expf(-__expf(float(_w[t+C])));
         float sum = 0.0f;
 
         #pragma unroll

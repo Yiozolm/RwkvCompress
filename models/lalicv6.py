@@ -334,7 +334,7 @@ class SpatialMix_BiV6(nn.Module):
 
         self.output = nn.Linear(attn_dim, dim, bias=False)
 
-        self.ln_x = nn.GroupNorm(self.n_head, self.attn_dim, eps=1e-5)
+        self.ln_x = nn.GroupNorm(self.n_head, attn_dim, eps=1e-5)
 
         # vrwkv in restore-rwkv
         with torch.no_grad():
@@ -547,8 +547,8 @@ class LALICv6(Elic2022Official):
         channel_context = {
             f"y{k}": nn.Sequential(
                 conv3x3(sum(self.groups[:k]), M),
-                RwkvBlock_BiV4(M, hidden_rate=8),
-                RwkvBlock_BiV4(M, hidden_rate=8),
+                RwkvBlock_BiV6(M, hidden_rate=8),
+                RwkvBlock_BiV6(M, hidden_rate=8),
                 conv1x1(M, self.groups[k] * 2),
             )
             for k in range(1, len(self.groups))
