@@ -263,9 +263,9 @@ class KMShift(nn.Module):
         self.dim = dim
         self.shift_pixel = shift_pixel
         # init weight
-        ddd = torch.ones(1, 1, self.dim)
+        ddd = torch.ones(1, self.dim, 1, 1)
         for i in range(self.dim):
-            ddd[0, 0, i] = i / self.dim
+            ddd[0, i, 0, 0] = i / self.dim
         self.time_maa_x = nn.Parameter(ddd, requires_grad=True)
 
     def forward(self, x):
@@ -276,7 +276,6 @@ class KMShift(nn.Module):
             output += torch.pow(self.time_maa_x, i) * xx
 
         return output
-
 
 class SpatialMix_BiV6(nn.Module):
     def __init__(self, dim):
