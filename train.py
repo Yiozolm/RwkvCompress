@@ -1,107 +1,39 @@
-"""
-Train an end-to-end compression model on an image dataset.
-Based on https://github.com/jmliu206/LIC_TCM/blob/main/train.py
-"""
-
 import argparse
+import numpy as np
+import shutil
 import math
-import random
 import sys
-
+import os
 import torch
+
 import torch.nn as nn
 import torch.optim as optim
-
-from torch.utils.data import DataLoader
+from torch.utils import data
 from torchvision import transforms
-
-from compressai.datasets import ImageFolder
-from compressai.zoo import models
-from pytorch_msssim import ms_ssim
-
-from models import LALIC
 from torch.utils.tensorboard import SummaryWriter
-import os
+from PIL import Image
 
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+from models import LALICv6
 
-
-def compute_msssim(a, b):
-    return ms_ssim(a, b, data_range=1.0)
+import warnings
+warnings.filterwarnings("ignore")
 
 
-class RateDistortionLoss(nn.Module):
-    """Custom rate distortion loss with a Lagrangian parameter."""
+torch.backends.cudnn.enabled = False 
 
-    def __init__(self, lmbda=1e-2, type="mse"):
-        super().__init__()
-        self.mse = nn.MSELoss()
-        self.lmbda = lmbda
-        self.type = type
-
-    def forward(self, output, target):
-        N, _, H, W = target.size()
-        out = {}
-        num_pixels = N * H * W
-
-        out["bpp_loss"] = sum(
-            (torch.log(likelihoods).sum() / (-math.log(2) * num_pixels))
-            for likelihoods in output["likelihoods"].values()
-        )
-        if self.type == "mse":
-            out["mse_loss"] = self.mse(output["x_hat"], target)
-            out["loss"] = self.lmbda * 255**2 * out["mse_loss"] + out["bpp_loss"]
-        else:
-            out["ms_ssim_loss"] = compute_msssim(output["x_hat"], target)
-            out["loss"] = self.lmbda * (1 - out["ms_ssim_loss"]) + out["bpp_loss"]
-
-        return out
-
-
-class AverageMeter:
-    """Compute running average."""
-
-    def __init__(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-
-class CustomDataParallel(nn.DataParallel):
-    """Custom DataParallel to access the module methods."""
-
-    def __getattr__(self, key):
-        try:
-            return super().__getattr__(key)
-        except AttributeError:
-            return getattr(self.module, key)
-
-
-def configure_optimizers(net, args):
-    """Separate parameters for the main optimizer and the auxiliary optimizer.
-    Return two optimizers"""
-
+def configure_optimizers(model, args):
     parameters = {
         n
-        for n, p in net.named_parameters()
+        for n, p in model.named_parameters()
         if not n.endswith(".quantiles") and p.requires_grad
     }
     aux_parameters = {
         n
-        for n, p in net.named_parameters()
+        for n, p in model.named_parameters()
         if n.endswith(".quantiles") and p.requires_grad
     }
-
     # Make sure we don't have an intersection of parameters
-    params_dict = dict(net.named_parameters())
+    params_dict = dict(model.named_parameters())
     inter_params = parameters & aux_parameters
     union_params = parameters | aux_parameters
 
@@ -116,142 +48,149 @@ def configure_optimizers(net, args):
         (params_dict[n] for n in sorted(aux_parameters)),
         lr=args.aux_learning_rate,
     )
+
     return optimizer, aux_optimizer
 
 
-def train_one_epoch(
-    model,
-    criterion,
-    train_dataloader,
-    optimizer,
-    aux_optimizer,
-    epoch,
-    clip_max_norm,
-    type="mse",
-):
-    model.train()
-    device = next(model.parameters()).device
+class RateDistortionLoss(nn.Module):
+    """Custom rate distortion loss with a Lagrangian parameter."""
 
-    for i, d in enumerate(train_dataloader):
-        d = d.to(device)
+    def __init__(self, lmbda=1e-2):
+        super().__init__()
+        self.mse = nn.MSELoss()
+        self.lmbda = lmbda
+
+    def forward(self, output, target):
+        N, C, H, W = target.size()
+        out = {}
+        num_pixels = N * H * W
+
+        out["bpp_loss"] = sum(
+            (torch.log(likelihoods).sum() / (-math.log(2) * num_pixels))
+            for likelihoods in output["likelihoods"].values()
+        )
+        out["mse_loss"] = self.mse(output["x_hat"], target)
+        out["loss"] = self.lmbda * out["mse_loss"] * 255**2 + out["bpp_loss"]
+
+
+        return out
+
+def train_one_epoch(model, criterion, train_dataloader, optimizer, aux_optimizer, train_step, tb_writer=None,
+                    clip_max_norm=None):
+    model.train()
+
+    train_size = 0
+    for x in train_dataloader:
+        x = x.to('cuda').contiguous().half()
+
         optimizer.zero_grad()
         aux_optimizer.zero_grad()
 
-        out_net = model(d)
+        out = model(x)
 
-        out_criterion = criterion(out_net, d)
+        out_criterion = criterion(out, x)
         out_criterion["loss"].backward()
-        if clip_max_norm > 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
+        if clip_max_norm:
+            nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
         optimizer.step()
 
-        aux_loss = model.aux_loss()
+        if torch.cuda.device_count() > 1:
+            aux_loss = model.module.aux_loss()
+        else:
+            aux_loss = model.aux_loss()
         aux_loss.backward()
         aux_optimizer.step()
 
-        if i % 100 == 0:
-            if type == "mse":
-                print(
-                    f"Train epoch {epoch}: ["
-                    f"{i * len(d)}/{len(train_dataloader.dataset)}"
-                    f" ({100.0 * i / len(train_dataloader):.0f}%)]"
-                    f"\tLoss: {out_criterion['loss'].item():.3f} |"
-                    f"\tMSE loss: {out_criterion['mse_loss'].item():.3f} |"
-                    f"\tBpp loss: {out_criterion['bpp_loss'].item():.2f} |"
-                    f"\tAux loss: {aux_loss.item():.2f}"
-                )
+        train_step += 1
+        if tb_writer and train_step % 10 == 1:
+            tb_writer.add_scalar('train loss', out_criterion["loss"].item(), train_step)
+            tb_writer.add_scalar('train mse', out_criterion["mse_loss"].item(), train_step)
+            tb_writer.add_scalar('train img bpp', out_criterion["bpp_loss"].item(), train_step)
+            if torch.cuda.device_count() > 1:
+                tb_writer.add_scalar('train aux', model.module.aux_loss().item(), train_step)
             else:
-                print(
-                    f"Train epoch {epoch}: ["
-                    f"{i * len(d)}/{len(train_dataloader.dataset)}"
-                    f" ({100.0 * i / len(train_dataloader):.0f}%)]"
-                    f"\tLoss: {out_criterion['loss'].item():.3f} |"
-                    f"\tMS_SSIM loss: {out_criterion['ms_ssim_loss'].item():.3f} |"
-                    f"\tBpp loss: {out_criterion['bpp_loss'].item():.2f} |"
-                    f"\tAux loss: {aux_loss.item():.2f}"
-                )
+                tb_writer.add_scalar('train aux', model.aux_loss().item(), train_step)
+            
+
+        train_size += x.shape[0]
+
+    print("train sz:{}".format(train_size))
+    return train_step
 
 
-def test_epoch(epoch, test_dataloader, model, criterion, type="mse"):
+def eval_epoch(model, criterion, eval_dataloader, epoch, tb_writer=None):
     model.eval()
-    device = next(model.parameters()).device
-    if type == "mse":
-        loss = AverageMeter()
-        bpp_loss = AverageMeter()
-        mse_loss = AverageMeter()
-        aux_loss = AverageMeter()
 
-        with torch.no_grad():
-            for d in test_dataloader:
-                d = d.to(device)
-                out_net = model(d)
-                out_criterion = criterion(out_net, d)
+    loss = 0
+    img_bpp = 0
+    mse_loss = 0
+    aux_loss = []
 
-                aux_loss.update(model.aux_loss())
-                bpp_loss.update(out_criterion["bpp_loss"])
-                loss.update(out_criterion["loss"])
-                mse_loss.update(out_criterion["mse_loss"])
-
-        print(
-            f"Test epoch {epoch}: Average losses:"
-            f"\tLoss: {loss.avg:.3f} |"
-            f"\tMSE loss: {mse_loss.avg:.3f} |"
-            f"\tBpp loss: {bpp_loss.avg:.2f} |"
-            f"\tAux loss: {aux_loss.avg:.2f}\n"
-        )
-
+    if tb_writer:
+        save_imgs = True
     else:
-        loss = AverageMeter()
-        bpp_loss = AverageMeter()
-        ms_ssim_loss = AverageMeter()
-        aux_loss = AverageMeter()
+        save_imgs = False
 
-        with torch.no_grad():
-            for d in test_dataloader:
-                d = d.to(device)
-                out_net = model(d)
-                out_criterion = criterion(out_net, d)
-
-                aux_loss.update(model.aux_loss())
-                bpp_loss.update(out_criterion["bpp_loss"])
-                loss.update(out_criterion["loss"])
-                ms_ssim_loss.update(out_criterion["ms_ssim_loss"])
-
-        print(
-            f"Test epoch {epoch}: Average losses:"
-            f"\tLoss: {loss.avg:.3f} |"
-            f"\tMS_SSIM loss: {ms_ssim_loss.avg:.3f} |"
-            f"\tBpp loss: {bpp_loss.avg:.2f} |"
-            f"\tAux loss: {aux_loss.avg:.2f}\n"
-        )
-
-    return loss.avg
+    eval_size = 0
+    with torch.no_grad():
+        for x in eval_dataloader:
+            x = x.to('cuda').contiguous().half()
 
 
-def save_checkpoint(state, is_best, epoch, save_path, filename):
-    torch.save(state, save_path + "checkpoint_latest.pth.tar")
-    if epoch % 5 == 0:
-        torch.save(state, filename)
+            out = model(x)
+            out_criterion = criterion(out, x)
+
+            N, _, H, W = x.shape
+
+            loss += out_criterion["loss"] * N
+            img_bpp += out_criterion["bpp_loss"] * N
+            mse_loss += out_criterion["mse_loss"] * N
+            if torch.cuda.device_count() > 1:
+                aux_loss.append(model.module.aux_loss())
+            else:
+                aux_loss.append(model.aux_loss())
+
+            if save_imgs:
+                x_rec = (out["x_hat"] * 255).clamp_(0, 255)
+                tb_writer.add_image('input/0', x[0, :, :, :].to(torch.uint8), epoch)
+                tb_writer.add_image('input/1', x[1, :, :, :].to(torch.uint8), epoch)
+                tb_writer.add_image('input/2', x[2, :, :, :].to(torch.uint8), epoch)
+                tb_writer.add_image('output/0', x_rec[0, :, :, :].to(torch.uint8), epoch)
+                tb_writer.add_image('output/1', x_rec[1, :, :, :].to(torch.uint8), epoch)
+                tb_writer.add_image('output/2', x_rec[2, :, :, :].to(torch.uint8), epoch)
+                save_imgs = False
+
+            eval_size += x.shape[0]
+
+        loss = (loss / eval_size).item()
+        img_bpp = (img_bpp / eval_size).item()
+        mse_loss = (mse_loss / eval_size).item()
+        aux_loss = (sum(aux_loss) / len(aux_loss)).item()
+        psnr = 10. * np.log10(1. ** 2 / mse_loss)
+        if tb_writer:
+            tb_writer.add_scalar('eval/eval loss', loss, epoch)
+            tb_writer.add_scalar('eval/eval img bpp', img_bpp, epoch)
+            tb_writer.add_scalar('eval/eval mse', mse_loss, epoch)
+            tb_writer.add_scalar('eval/eval psnr', psnr, epoch)
+            tb_writer.add_scalar('eval/eval aux', aux_loss, epoch)
+
+        print("eval sz:{}".format(eval_size))
+
+    print("Epoch(Eval):{}, img bpp:{}, mse:{}, psnr:{}".format(epoch, img_bpp, mse_loss, psnr))
+
+    return loss, img_bpp, mse_loss, psnr, aux_loss
+
+def save_checkpoint(state, is_best, filename):
+    torch.save(state, filename)
     if is_best:
-        torch.save(state, save_path + "checkpoint_best.pth.tar")
-
+        shutil.copyfile(filename, filename[:-4]+"_best"+filename[-4:])
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Example training script.")
     parser.add_argument(
-        "-m",
-        "--model",
-        default="bmshj2018-factorized",
-        choices=models.keys(),
-        help="Model architecture (default: %(default)s)",
-    )
-    parser.add_argument(
-        "-d", "--dataset", type=str, required=True, help="Training dataset"
-    )
-    parser.add_argument(
         "-e",
         "--epochs",
-        default=50,
+        default=40,
         type=int,
         help="Number of epochs (default: %(default)s)",
     )
@@ -266,28 +205,29 @@ def parse_args(argv):
         "-n",
         "--num-workers",
         type=int,
-        default=20,
+        default=8,
         help="Dataloaders threads (default: %(default)s)",
     )
     parser.add_argument(
         "--lambda",
         dest="lmbda",
         type=float,
-        default=3,
+        default=0.0018,
         help="Bit-rate distortion parameter (default: %(default)s)",
     )
     parser.add_argument(
-        "--batch-size", type=int, default=8, help="Batch size (default: %(default)s)"
+        "--batch-size", type=int, default=16, help="Batch size (default: %(default)s)"
     )
     parser.add_argument(
-        "--test-batch-size",
+        "--eval_batch_size",
         type=int,
-        default=8,
-        help="Test batch size (default: %(default)s)",
+        default=64,
+        help="Eval batch size (default: %(default)s)",
     )
     parser.add_argument(
         "--aux-learning-rate",
         default=1e-3,
+        type=float,
         help="Auxiliary loss learning rate (default: %(default)s)",
     )
     parser.add_argument(
@@ -302,7 +242,10 @@ def parse_args(argv):
         "--save", action="store_true", default=True, help="Save model to disk"
     )
     parser.add_argument(
-        "--seed", type=float, default=100, help="Set random seed for reproducibility"
+        "--save_path", type=str, default="./ckp_ll", help="Where to Save model"
+    )
+    parser.add_argument(
+        "--seed", default=0, type=float, help="Set random seed for reproducibility"
     )
     parser.add_argument(
         "--clip_max_norm",
@@ -311,52 +254,67 @@ def parse_args(argv):
         help="gradient clipping max norm (default: %(default)s",
     )
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint")
-    parser.add_argument(
-        "--type", type=str, default="mse", help="loss type", choices=["mse", "ms-ssim"]
+    parser.add_argument("--log_dir", default="./logs_ll/", type=str, help="Path to save log")
+    parser.add_argument("--recon_dir", default="./test", type=str, help="Test reconstruction image path"
     )
-    parser.add_argument("--save_path", type=str, help="save_path")
-    parser.add_argument("--skip_epoch", type=int, default=0)
-    parser.add_argument(
-        "--N",
-        type=int,
-        default=128,
-    )
-    parser.add_argument("--lr_epoch", nargs="+", type=int)
-    parser.add_argument("--continue_train", action="store_true", default=True)
+    parser.set_defaults(cuda=True)
     args = parser.parse_args(argv)
     return args
+
+class ImageDataset(data.Dataset):
+
+    def __init__(self, path_dir, img_mode = None, transform=None):
+        self.path_dir = path_dir
+        self.img_mode = img_mode
+        self.transform = transform
+        self.images = os.listdir(self.path_dir)
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, index):
+        image_name = self.images[index]
+        img_path = os.path.join(self.path_dir, image_name)
+        img = Image.open(img_path)
+
+        if self.img_mode is not None:
+            img = img.convert(self.img_mode)
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        if img.shape[0] < 3:
+            img = img.expand(3,-1,-1)
+        elif img.shape[0] > 3:
+            img = img[:-1,:,:]
+        
+        return img
 
 
 def main(argv):
     args = parse_args(argv)
-    for arg in vars(args):
-        print(arg, ":", getattr(args, arg))
-    type = args.type
-    save_path = os.path.join(args.save_path, str(args.lmbda))
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-        os.makedirs(save_path + "tensorboard/")
+    print(args)
     if args.seed is not None:
         torch.manual_seed(args.seed)
-        random.seed(args.seed)
-    writer = SummaryWriter(save_path + "tensorboard/")
+        np.random.seed(args.seed)
+
+    if args.save_path and not os.path.exists(args.save_path):
+        os.makedirs(args.save_path)
+
 
     train_transforms = transforms.Compose(
         [transforms.RandomCrop(args.patch_size), transforms.ToTensor()]
     )
 
-    test_transforms = transforms.Compose(
+    eval_transforms = transforms.Compose(
         [transforms.CenterCrop(args.patch_size), transforms.ToTensor()]
-    )
+    )  
 
-    train_dataset = ImageFolder(args.dataset, split="train", transform=train_transforms)
-    test_dataset = ImageFolder(args.dataset, split="test", transform=test_transforms)
-
+    train_dataset = ImageDataset("../fiftyone/open-images-v6/train/data", transform=train_transforms)
+    eval_dataset = ImageDataset("../fiftyone/open-images-v6/test/data", transform=eval_transforms)
     device = "cuda" if args.cuda and torch.cuda.is_available() else "cpu"
-    print(device)
-    device = "cuda"
 
-    train_dataloader = DataLoader(
+    train_dataloader = data.DataLoader(
         train_dataset,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
@@ -364,59 +322,63 @@ def main(argv):
         pin_memory=(device == "cuda"),
     )
 
-    test_dataloader = DataLoader(
-        test_dataset,
-        batch_size=args.test_batch_size,
+    eval_dataloader = data.DataLoader(
+        eval_dataset,
+        batch_size=args.eval_batch_size,
         num_workers=args.num_workers,
         shuffle=False,
         pin_memory=(device == "cuda"),
     )
 
-    net = LALIC(
+    net = LALICv6(
         dims=[96, 144, 256, 320, 256, 192],
         depths=[2, 4, 6, 6],
     )
-    net = net.to(device)
+    # Wrap the model with DataParallel
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs for training")
+        net = nn.DataParallel(net)
 
-    if args.cuda and torch.cuda.device_count() > 1:
-        net = CustomDataParallel(net)
+    net = net.to(device)
+    net = net.half()
 
     optimizer, aux_optimizer = configure_optimizers(net, args)
-    milestones = args.lr_epoch
-    print("milestones: ", milestones)
-    lr_scheduler = optim.lr_scheduler.MultiStepLR(
-        optimizer, milestones, gamma=0.1, last_epoch=-1
-    )
+    lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[36], gamma=0.1)
+    criterion = RateDistortionLoss(lmbda=args.lmbda)
 
-    criterion = RateDistortionLoss(lmbda=args.lmbda, type=type)
+    tb_writer = SummaryWriter(args.log_dir)
+    train_step = 0
 
     last_epoch = 0
     if args.checkpoint:  # load from previous checkpoint
         print("Loading", args.checkpoint)
         checkpoint = torch.load(args.checkpoint, map_location=device)
-        net.load_state_dict(checkpoint["state_dict"])
-        if args.continue_train:
-            last_epoch = checkpoint["epoch"] + 1
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            aux_optimizer.load_state_dict(checkpoint["aux_optimizer"])
-            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+        last_epoch = checkpoint["epoch"] + 1
+        net.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        aux_optimizer.load_state_dict(checkpoint["aux_optimizer"])
+        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+        train_step = checkpoint["step"]
 
     best_loss = float("inf")
     for epoch in range(last_epoch, args.epochs):
         print(f"Learning rate: {optimizer.param_groups[0]['lr']}")
-        train_one_epoch(
+        train_step = train_one_epoch(
             net,
             criterion,
             train_dataloader,
             optimizer,
             aux_optimizer,
-            epoch,
+            train_step,
+            tb_writer,
             args.clip_max_norm,
-            type,
         )
-        loss = test_epoch(epoch, test_dataloader, net, criterion, type)
-        writer.add_scalar("test_loss", loss, epoch)
-        lr_scheduler.step()
+        loss, img_bpp, mse_loss, psnr, aux_loss = eval_epoch(net, criterion, eval_dataloader, epoch, tb_writer)
+
+        if torch.cuda.device_count() > 1:
+            lr_scheduler.module.step()
+        else:
+            lr_scheduler.step()
 
         is_best = loss < best_loss
         best_loss = min(loss, best_loss)
@@ -432,11 +394,11 @@ def main(argv):
                     "lr_scheduler": lr_scheduler.state_dict(),
                 },
                 is_best,
-                epoch,
-                save_path,
-                save_path + str(epoch) + "_checkpoint.pth.tar",
+                os.path.join(args.save_path, "ckp"+str(args.lmbda*10000)+'.tar'),
             )
 
+        print("---------------")
+    tb_writer.close()
 
 if __name__ == "__main__":
     main(sys.argv[1:])

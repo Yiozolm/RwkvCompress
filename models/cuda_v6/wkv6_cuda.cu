@@ -2,6 +2,8 @@
 #include <assert.h>
 #include "ATen/ATen.h"
 #define EPS (1e-6)
+typedef at::BFloat16 bf16;
+
 
 template <typename F>
 __global__ void kernel_forward(const int B, const int T, const int C, const int H,
@@ -345,14 +347,14 @@ __global__ void kernel_backward_333(const int B, const int T, const int C, const
     }
 }
 
-void cuda_forward(int B, int T, int C, int H, float *r, float *k, float *v, float *w, float *u, float *y)
+void cuda_forward(int B, int T, int C, int H, bf16 *r, bf16 *k, bf16 *v, bf16 *w, bf16 *u, bf16 *y)
 {
     assert(H*_N_ == C);
     assert(_N_%4 == 0);
     kernel_forward<<<dim3(B * H), dim3(_N_)>>>(B, T, C, H, r, k, v, w, u, y);
 }
 
-void cuda_backward(int B, int T, int C, int H, float *r, float *k, float *v, float *w, float *u, float *gy, float *gr, float *gk, float *gv, float *gw, float *gu)
+void cuda_backward(int B, int T, int C, int H, bf16 *r, bf16 *k, bf16 *v, bf16 *w, bf16 *u, bf16 *gy, bf16 *gr, bf16 *gk, bf16 *gv, bf16 *gw, bf16 *gu)
 {
     assert(H*_N_ == C);
     assert(_N_%4 == 0);
