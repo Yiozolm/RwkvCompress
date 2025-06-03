@@ -1,9 +1,10 @@
 import os
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
-from einops import rearrange
+import torch.nn.functional as F
 from torch.utils.cpp_extension import load
+from einops import rearrange
+
 from compressai.registry import register_model
 from compressai.models import Elic2022Official
 from compressai.entropy_models import EntropyBottleneck
@@ -22,16 +23,19 @@ from compressai.layers import (
 )
 
 
-def load_biwkv4():
-    # Bi-directional WKV version 4, a form of linear attention 
-    # from Vision-RWKV, https://github.com/OpenGVLab/Vision-RWKV
-    # commit dee3bbe: [add] update new version of cuda code, avoid hard code of T_MAX
-    current_file_dir = os.path.dirname(os.path.abspath(__file__))
-    biwkv4_cuda = load(
-        name="biwkv4",
+
+HEAD_SIZE = 16  # origin:64
+T_MAX = 128 * 128  # for training on 256x256 crop
+
+
+# T_MAX = 1024 * 1024  # for inference
+
+current_file_dir = os.path.dirname(os.path.abspath(__file__))
+wkv6_cuda = load(
+        name="wkv6",
         sources=[
-            os.path.join(current_file_dir, "cuda/biwkv4_op_new.cpp"),
-            os.path.join(current_file_dir, "cuda/biwkv4_cuda_new.cu"),
+            os.path.join(current_file_dir, "cuda_v6_bf16/wkv6_op.cpp"),
+            os.path.join(current_file_dir, "cuda_v6_bf16/wkv6_cuda.cu"),
         ],
         verbose=True,
         extra_cuda_cflags=[
@@ -41,51 +45,61 @@ def load_biwkv4():
             "-O3",
             "-Xptxas -O3",
             "-gencode arch=compute_86,code=sm_86",
+            f"-D_N_={HEAD_SIZE}",
+            f"-D_T_={T_MAX}",
         ],
     )
-    return biwkv4_cuda
 
 
-class BiWKV4(torch.autograd.Function):
+
+class BiWKV6(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, w, u, k, v):
-        half_mode = w.dtype == torch.half
-        bf_mode = w.dtype == torch.bfloat16
-        ctx.save_for_backward(w, u, k, v)
-        w = w.float().contiguous()
-        u = u.float().contiguous()
-        k = k.float().contiguous()
-        v = v.float().contiguous()
-        y = torch.ops.biwkv4.forward(w, u, k, v)
-        if half_mode:
-            y = y.half()
-        elif bf_mode:
-            y = y.bfloat16()
-        return y
+    def forward(ctx, B, T, C, H, r, k, v, w, u):
+        with torch.no_grad():
+            assert r.dtype == torch.bfloat16
+            assert k.dtype == torch.bfloat16
+            assert v.dtype == torch.bfloat16
+            assert w.dtype == torch.bfloat16
+            assert u.dtype == torch.bfloat16
+            assert HEAD_SIZE == C // H
+            ctx.B = B
+            ctx.T = T
+            ctx.C = C
+            ctx.H = H
+            assert r.is_contiguous()
+            assert k.is_contiguous()
+            assert v.is_contiguous()
+            assert w.is_contiguous()
+            assert u.is_contiguous()
+            ew = (-torch.exp(w.float())).contiguous()
+            ctx.save_for_backward(r, k, v, ew, u)
+            y = torch.empty((B, T, C), device=r.device, dtype=torch.bfloat16,
+                            memory_format=torch.contiguous_format)  #.uniform_(-100, 100)
+            wkv6_cuda.forward(B, T, C, H, r, k, v, ew, u, y)
+            return y
 
     @staticmethod
     def backward(ctx, gy):
-        w, u, k, v = ctx.saved_tensors
-        half_mode = w.dtype == torch.half
-        bf_mode = w.dtype == torch.bfloat16
-        gw, gu, gk, gv = torch.ops.biwkv4.backward(
-            w.float().contiguous(),
-            u.float().contiguous(),
-            k.float().contiguous(),
-            v.float().contiguous(),
-            gy.float().contiguous(),
-        )
-        if half_mode:
-            return gw.half(), gu.half(), gk.half(), gv.half()
-        elif bf_mode:
-            return (gw.bfloat16(), gu.bfloat16(), gk.bfloat16(), gv.bfloat16())
-        else:
-            return (gw, gu, gk, gv)
+        with torch.no_grad():
+            assert gy.dtype == torch.bfloat16
+            B = ctx.B
+            T = ctx.T
+            C = ctx.C
+            H = ctx.H
+            assert gy.is_contiguous()
+            r, k, v, ew, u = ctx.saved_tensors
+            gr = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
+            gk = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
+            gv = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
+            gw = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
+            gu = torch.empty((B, C), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
+            wkv6_cuda.backward(B, T, C, H, r, k, v, ew, u, gy, gr, gk, gv, gw, gu)
+            gu = torch.sum(gu, 0).view(H, C // H)
+            return (None, None, None, None, gr, gk, gv, gw, gu)
 
 
-def RUN_BiWKV4(w, u, k, v):
-    return BiWKV4.apply(w.cuda(), u.cuda(), k.cuda(), v.cuda())
-
+def RUN_CUDA_RWKV6(B, T, C, H, r, k, v, w, u):
+    return BiWKV6.apply(B, T, C, H, r, k, v, w, u)
 
 class OmniShift(nn.Module):
     # Reparameterized 5x5 depth-wise convolution,
@@ -170,176 +184,149 @@ class OmniShift(nn.Module):
         return out
 
 
-def q_shift_singlehead(input, shift_pixel=1):
-    # modified single head q_shift from Vision-RWKV
-    B, C, H, W = input.shape
-    assert C % 4 == 0, "Channel number must be divisible by 4 for 4-way directional shifts."
-    assert C >= 4 * shift_pixel, "Too much shift."
-
-    output = torch.zeros_like(input)
-
-    # Total Split: Four shift direction * Manhattan Distance
-    Channel_per_group = C // 4
-    Channel_splits = Channel_per_group // shift_pixel
-
-    # some problem
-    def singleShift(horizontal, vertical, shift_direction):
-        assert horizontal + vertical == shift_pixel, 'Invalid shift length.'
-        assert shift_direction in (0, 1, 2, 3), 'Only four shift directions are supported.'
-        r'''
-        The direction of movement must be strictly clockwise.
-        For example, for shift_direction == 0, that is shift up, the vertical shift is obviously up, and we want the horizontal shift is right. 
-        '''
-        if shift_direction == 0:  # shift up
-            if horizontal == 0:  # Consider the case of non-divisibility.
-                output[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
-                        (shift_direction + 1) * Channel_per_group), 0:H - vertical, horizontal:] = \
-                    input[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
-                            (shift_direction + 1) * Channel_per_group), vertical:, 0:W - horizontal]
-            else:
-                output[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
-                        shift_direction * Channel_per_group + vertical * Channel_splits), 0:H - vertical,
-                horizontal:] = \
-                    input[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
-                            shift_direction * Channel_per_group + vertical * Channel_splits), vertical:,
-                    0:W - horizontal]
-        elif shift_direction == 1:  # shift right
-            if vertical == 0:
-                output[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
-                        (shift_direction + 1) * Channel_per_group), vertical:, horizontal:] = \
-                    input[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
-                            (shift_direction + 1) * Channel_per_group), 0:H - vertical, 0:W - horizontal]
-            else:
-                output[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
-                        shift_direction * Channel_per_group + horizontal * Channel_splits), vertical:,
-                horizontal:] = \
-                    input[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
-                            shift_direction * Channel_per_group + horizontal * Channel_splits), 0:H - vertical,
-                    0:W - horizontal]
-        elif shift_direction == 2:  # shift down
-            if horizontal == 0:
-                output[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
-                        (shift_direction + 1) * Channel_per_group), vertical:, 0:W - horizontal] = \
-                    input[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
-                            (shift_direction + 1) * Channel_per_group), 0:H - vertical, horizontal:]
-            else:
-                output[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
-                        shift_direction * Channel_per_group + vertical * Channel_splits), vertical:,
-                0:W - horizontal] = \
-                    input[:, (shift_direction * Channel_per_group + (vertical - 1) * Channel_splits):(
-                            shift_direction * Channel_per_group + vertical * Channel_splits), 0:H - vertical,
-                    horizontal:]
-        else:
-            if vertical == 0:  # shift left
-                output[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):, 0:H - vertical,
-                0:W - horizontal] = \
-                    input[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):, vertical:,
-                    horizontal:]
-            else:
-                output[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
-                        shift_direction * Channel_per_group + horizontal * Channel_splits), 0:H - vertical,
-                0:W - horizontal] = \
-                    input[:, (shift_direction * Channel_per_group + (horizontal - 1) * Channel_splits):(
-                            shift_direction * Channel_per_group + horizontal * Channel_splits), vertical:,
-                    horizontal:]
-
-    for i in range(4):
-        for j in range(1, shift_pixel + 1):
-            if i in (0, 2):
-                singleShift(horizontal=shift_pixel - j, vertical=j, shift_direction=i)
-            elif i in (1, 3):
-                singleShift(horizontal=j, vertical=shift_pixel - j, shift_direction=i)
-
-    return output
-
-
-class KMShift(nn.Module):
-    r"""
-    K-Manhattan distance shift, we regard original q-shift as 1-Manhattan distance shift, a specific case.
-    """
-    def __init__(self, dim, shift_pixel):
-        super(KMShift, self).__init__()
-        self.dim = dim
-        self.shift_pixel = shift_pixel
-        # init weight
-        ddd = torch.ones(1, self.dim, 1, 1)
-        for i in range(self.dim):
-            ddd[0, i, 0, 0] = i / self.dim
-        self.time_maa_x = nn.Parameter(ddd, requires_grad=True)
-
-    def forward(self, x):
-        output = x
-
-        for i in range(1, self.shift_pixel + 1):
-            xx = q_shift_singlehead(x, shift_pixel=i)
-            output += torch.pow(self.time_maa_x, i) * xx
-
-        return output
-
 class SpatialMix_BiV6(nn.Module):
     def __init__(self, dim):
         super().__init__()
         self.dim = dim
         attn_dim = dim
 
-        self.kshift = KMShift(dim=dim, shift_pixel=1)
+        self.head_size = HEAD_SIZE
+        self.n_head = self.dim // self.head_size
+        assert self.dim == self.head_size * self.n_head, f'Total dim:{self.dim},n_head:{self.n_head},head_size:{self.head_size},rectify your HEADSIZE'
+        self.device = None
+
+        self.shift = OmniShift(dim=dim) # dim = n_embd, attn_dim = attn_sz
         self.key = nn.Linear(dim, attn_dim, bias=False)
         self.value = nn.Linear(dim, attn_dim, bias=False)
         self.receptance = nn.Linear(dim, attn_dim, bias=False)
+        self.gate = nn.Linear(dim, attn_dim, bias=False)
+
         self.output = nn.Linear(attn_dim, dim, bias=False)
 
-        self.decay = nn.Parameter(torch.randn((self.dim,)))
-        self.boost = nn.Parameter(torch.randn((self.dim,)))
+        self.ln_x = nn.GroupNorm(self.n_head, attn_dim, eps=1e-5)
+
+        # vrwkv in restore-rwkv
+        with torch.no_grad():
+            # ddd = torch.ones(1, 1, self.dim)
+
+            # fancy time_mix
+            self.time_maa_x = nn.Parameter(torch.randn(1, 1, self.dim))
+            self.time_maa_w = nn.Parameter(torch.randn(1, 1, self.dim))
+            self.time_maa_k = nn.Parameter(torch.randn(1, 1, self.dim))
+            self.time_maa_v = nn.Parameter(torch.randn(1, 1, self.dim))
+            self.time_maa_r = nn.Parameter(torch.randn(1, 1, self.dim))
+            self.time_maa_g = nn.Parameter(torch.randn(1, 1, self.dim))
+
+            TIME_MIX_EXTRA_DIM = 32  # generate TIME_MIX for w,k,v,r,g
+            self.time_maa_w1 = nn.Parameter(torch.zeros(self.dim, TIME_MIX_EXTRA_DIM * 5).uniform_(-1e-4, 1e-4))
+            self.time_maa_w2 = nn.Parameter(torch.zeros(5, TIME_MIX_EXTRA_DIM, self.dim).uniform_(-1e-4, 1e-4))
+
+            # fancy time_decay
+            self.time_decay1 = nn.Parameter(torch.randn(1, 1, attn_dim))
+            self.time_decay2 = nn.Parameter(torch.randn(1, 1, attn_dim))
+
+            TIME_DECAY_EXTRA_DIM = 64
+            self.time_decay_w1_1 = nn.Parameter(torch.zeros(self.dim, TIME_DECAY_EXTRA_DIM).uniform_(-1e-4, 1e-4))
+            self.time_decay_w1_2 = nn.Parameter(torch.zeros(TIME_DECAY_EXTRA_DIM, attn_dim).uniform_(-1e-4, 1e-4))
+            self.time_faaaa_1 = nn.Parameter(torch.randn(self.n_head, self.head_size))
+
+            self.time_decay_w2_1 = nn.Parameter(torch.zeros(self.dim, TIME_DECAY_EXTRA_DIM).uniform_(-1e-4, 1e-4))
+            self.time_decay_w2_2 = nn.Parameter(torch.zeros(TIME_DECAY_EXTRA_DIM, attn_dim).uniform_(-1e-4, 1e-4))
+            self.time_faaaa_2 = nn.Parameter(torch.randn(self.n_head, self.head_size))
 
     def jit_func(self, x, resolution):
+        B, T, C = x.size()
         H, W = resolution
-        x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
-        # x = self.omni_shift(x)
-        x = self.kshift(x)
-        x = rearrange(x, "b c h w -> b (h w) c")
+        xx = rearrange(x, "B (H W) C -> B C H W", H=H, W=W)
+        xx = self.shift(xx)
+        xx = rearrange(xx, "B C H W -> B (H W) C")
 
-        k = self.key(x)
-        v = self.value(x)
-        r = self.receptance(x)
-        sr = torch.sigmoid(r)
+        xxx = x + xx * self.time_maa_x
+        xxx = torch.tanh(xxx @ self.time_maa_w1).view(B * T, 5, -1).transpose(0, 1)
+        xxx = torch.bmm(xxx, self.time_maa_w2).view(5, B, T, -1)
 
-        return sr, k, v
+        mw, mk, mv, mr, mg = xxx.unbind(dim=0)
+
+        xw = x + xx * (self.time_maa_w + mw)
+        xk = x + xx * (self.time_maa_k + mk)
+        xv = x + xx * (self.time_maa_v + mv)
+        xr = x + xx * (self.time_maa_r + mr)
+        xg = x + xx * (self.time_maa_g + mg)
+
+        k = self.key(xk)
+        v = self.value(xv)
+        r = self.receptance(xr)
+        g = F.silu(self.gate(xg))
+
+        ww1 = torch.tanh(xw @ self.time_decay_w1_1) @ self.time_decay_w1_2  # [B, T, C]
+        w1 = self.time_decay1 + ww1
+
+        ww2 = torch.tanh(xw @ self.time_decay_w2_1) @ self.time_decay_w2_2  # [B, T, C]
+        w2 = self.time_decay2 + ww2
+
+        return r, k, v, g, w1, w2
+
+    def jit_func_2(self, x, g):
+        B, T, C = x.size()
+        x = x.view(B * T, C)
+
+        x = self.ln_x(x).view(B, T, C)
+        x = self.output(x * g)
+        return x
 
     def forward(self, x, resolution):
         B, T, C = x.size()
-        sr, k, v = self.jit_func(x, resolution)
-        x = RUN_BiWKV4(self.decay / T, self.boost / T, k, v)
-        x = sr * x
-        x = self.output(x)
-        return x
+        self.device = x.device
+
+        r, k, v, g, w1, w2 = self.jit_func(x, resolution)
+
+        v = RUN_CUDA_RWKV6(B, T, C, self.n_head, r, k, v, w1, u=self.time_faaaa_1)
+
+        H, W = resolution
+
+        r = rearrange(r, 'B (H W) C -> B (W H) C', H=H, W=W)
+        k = rearrange(k, 'B (H W) C -> B (W H) C', H=H, W=W)
+        v = rearrange(v, 'B (H W) C -> B (W H) C', H=H, W=W)
+
+        v = RUN_CUDA_RWKV6(B, T, C, self.n_head, r, k, v, w2, u=self.time_faaaa_2)
+        x = rearrange(v, 'B (W H) C -> B (H W) C', H=H, W=W)
+
+        return self.jit_func_2(x, g)
 
 
 class ChannelMix_V6(nn.Module):
-    def __init__(self, dim, hidden_rate=4):
+    def __init__(self, dim, hidden_rate=4,
+                 key_norm=False):
         super().__init__()
         self.n_embd = dim
         hidden_dim = int(hidden_rate * dim)
 
-        self.kshift = KMShift(dim=dim, shift_pixel=1)
+        self.shift = OmniShift(dim=dim)
         self.key = nn.Linear(dim, hidden_dim, bias=False)
         self.receptance = nn.Linear(dim, dim, bias=False)
         self.value = nn.Linear(hidden_dim, dim, bias=False)
+        if key_norm:
+            self.key_norm = nn.LayerNorm(hidden_dim)
+        else:
+            self.key_norm = None
 
     def forward(self, x, resolution):
         H, W = resolution
-        x = rearrange(x, "b (h w) c -> b c h w", h=H, w=W)
-        # x = self.omni_shift(x)
-        x = self.kshift(x)
-        x = rearrange(x, "b c h w -> b (h w) c")
+        x = rearrange(x, 'B (H W) C -> B C H W', H=H, W=W)
+        x = self.shift(x)
+        x = rearrange(x, 'B C H W -> B (H W) C')
 
         k = self.key(x)
         k = torch.square(torch.relu(k))
+
+        if self.key_norm is not None:
+            k = self.key_norm(k)
         kv = self.value(k)
         x = torch.sigmoid(self.receptance(x)) * kv
+
         return x
 
-
-class RwkvBlock_BiV4(nn.Module):
+class RwkvBlock_BiV6(nn.Module):
     def __init__(self, dim, hidden_rate=4, with_ckpt=False):
         super().__init__()
         self.with_ckpt = with_ckpt
@@ -368,7 +355,6 @@ class RwkvBlock_BiV4(nn.Module):
             )
         else:
             return self._forward(x)
-
 
 def conv(in_channels, out_channels, kernel_size=5, stride=2):
     return nn.Conv2d(
@@ -425,9 +411,8 @@ class EntropyParametersBlock(nn.Module):
         x = rearrange(x, "b (h w) c -> b c h w", h=h, w=w)
         return x + identity
 
-
-@register_model("LALIC")
-class LALIC(Elic2022Official):
+@register_model("LALICv6")
+class LALICv6(Elic2022Official):
     def __init__(
             self,
             N=128,
@@ -445,37 +430,36 @@ class LALIC(Elic2022Official):
         L1, L2, L3, L4 = depths
         M = N4
 
-        load_biwkv4()
         # flatten the list
         self.g_a = form_modules(
             conv(3, N1, kernel_size=5),
-            [RwkvBlock_BiV4(N1) for _ in range(L1)],
+            [RwkvBlock_BiV6(N1) for _ in range(L1)],
             conv(N1, N2, kernel_size=3),
-            [RwkvBlock_BiV4(N2) for i in range(L2)],
+            [RwkvBlock_BiV6(N2) for i in range(L2)],
             conv(N2, N3, kernel_size=3),
-            [RwkvBlock_BiV4(N3) for _ in range(L3)],
+            [RwkvBlock_BiV6(N3) for _ in range(L3)],
             conv(N3, N4, kernel_size=3),
         )
 
         self.g_s = form_modules(
             deconv(N4, N3, kernel_size=3),
-            [RwkvBlock_BiV4(N3) for _ in range(L3)],
+            [RwkvBlock_BiV6(N3) for _ in range(L3)],
             deconv(N3, N2, kernel_size=3),
-            [RwkvBlock_BiV4(N2) for _ in range(L2)],
+            [RwkvBlock_BiV6(N2) for _ in range(L2)],
             deconv(N2, N1, kernel_size=3),
-            [RwkvBlock_BiV4(N1) for _ in range(L1)],
+            [RwkvBlock_BiV6(N1) for _ in range(L1)],
             deconv(N1, 3, kernel_size=5),
         )
 
         self.h_a = form_modules(
             conv(N4, N5, kernel_size=5),
-            [RwkvBlock_BiV4(N5) for _ in range(L4)],
+            [RwkvBlock_BiV6(N5) for _ in range(L4)],
             conv(N5, N6, kernel_size=5),
         )
 
         self.h_s = form_modules(
             deconv(N6, N5, kernel_size=5),
-            [RwkvBlock_BiV4(N5) for _ in range(L4)],
+            [RwkvBlock_BiV6(N5) for _ in range(L4)],
             deconv(N5, N4, kernel_size=5),
         )
 
@@ -483,8 +467,8 @@ class LALIC(Elic2022Official):
         channel_context = {
             f"y{k}": nn.Sequential(
                 conv3x3(sum(self.groups[:k]), M),
-                RwkvBlock_BiV4(M, hidden_rate=8),
-                RwkvBlock_BiV4(M, hidden_rate=8),
+                RwkvBlock_BiV6(M, hidden_rate=8),
+                RwkvBlock_BiV6(M, hidden_rate=8),
                 conv1x1(M, self.groups[k] * 2),
             )
             for k in range(1, len(self.groups))
