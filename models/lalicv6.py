@@ -22,33 +22,30 @@ from compressai.layers import (
     sequential_channel_ramp,
 )
 
-
 HEAD_SIZE = 16  # origin:64
 T_MAX = 128 * 128  # for training on 256x256 crop
-
 
 # T_MAX = 1024 * 1024  # for inference
 
 current_file_dir = os.path.dirname(os.path.abspath(__file__))
 wkv6_cuda = load(
-        name="wkv6",
-        sources=[
-            os.path.join(current_file_dir, "cuda_v6/wkv6_op.cpp"),
-            os.path.join(current_file_dir, "cuda_v6/wkv6_cuda.cu"),
-        ],
-        verbose=True,
-        extra_cuda_cflags=[
-            "-res-usage",
-            "--maxrregcount 60",
-            "--use_fast_math",
-            "-O3",
-            "-Xptxas -O3",
-            "-gencode arch=compute_86,code=sm_86",
-            f"-D_N_={HEAD_SIZE}",
-            f"-D_T_={T_MAX}",
-        ],
-    )
-
+    name="wkv6",
+    sources=[
+        os.path.join(current_file_dir, "cuda_v6/wkv6_op.cpp"),
+        os.path.join(current_file_dir, "cuda_v6/wkv6_cuda.cu"),
+    ],
+    verbose=True,
+    extra_cuda_cflags=[
+        "-res-usage",
+        "--maxrregcount 60",
+        "--use_fast_math",
+        "-O3",
+        "-Xptxas -O3",
+        "-gencode arch=compute_86,code=sm_86",
+        f"-D_N_={HEAD_SIZE}",
+        f"-D_T_={T_MAX}",
+    ],
+)
 
 
 class BiWKV6(torch.autograd.Function):
@@ -81,11 +78,16 @@ class BiWKV6(torch.autograd.Function):
             H = ctx.H
             assert gy.is_contiguous()
             r, k, v, w, u = ctx.saved_tensors
-            gr = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
-            gk = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
-            gv = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
-            gw = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
-            gu = torch.empty((B, C), device=gy.device, requires_grad=False, dtype=torch.float32, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
+            gr = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32,
+                             memory_format=torch.contiguous_format)  #.uniform_(-100, 100)
+            gk = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32,
+                             memory_format=torch.contiguous_format)  #.uniform_(-100, 100)
+            gv = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32,
+                             memory_format=torch.contiguous_format)  #.uniform_(-100, 100)
+            gw = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.float32,
+                             memory_format=torch.contiguous_format)  #.uniform_(-100, 100)
+            gu = torch.empty((B, C), device=gy.device, requires_grad=False, dtype=torch.float32,
+                             memory_format=torch.contiguous_format)  #.uniform_(-100, 100)
             wkv6_cuda.backward(B, T, C, H, r, k, v, w, u, gy, gr, gk, gv, gw, gu)
             # print("Shape of gu before sum:", gu.shape)
             # print("Value of H:", H)
@@ -324,7 +326,6 @@ class SpatialMix_BiV6(nn.Module):
         assert self.dim == self.head_size * self.n_head, f'Total dim:{self.dim},n_head:{self.n_head},head_size:{self.head_size},rectify your HEADSIZE'
         self.device = None
 
-        # self.shift = KMShift(dim=dim, shift_pixel=1)  # dim = n_embd, attn_dim = attn_sz
         self.shift = OmniShift(dim=dim)
         self.key = nn.Linear(dim, attn_dim, bias=False)
         self.value = nn.Linear(dim, attn_dim, bias=False)
@@ -348,21 +349,21 @@ class SpatialMix_BiV6(nn.Module):
             self.time_maa_g = nn.Parameter(torch.randn(1, 1, self.dim))
 
             TIME_MIX_EXTRA_DIM = 32  # generate TIME_MIX for w,k,v,r,g
-            self.time_maa_w1 = nn.Parameter(torch.zeros(self.dim, TIME_MIX_EXTRA_DIM * 5).uniform_(-1e-4, 1e-4))
-            self.time_maa_w2 = nn.Parameter(torch.zeros(5, TIME_MIX_EXTRA_DIM, self.dim).uniform_(-1e-4, 1e-4))
+            self.time_maa_w1 = nn.Parameter(
+                torch.zeros(self.dim, TIME_MIX_EXTRA_DIM * 5).uniform_(-1e-4, 1e-4))  # dim * 160
+            self.time_maa_w2 = nn.Parameter(
+                torch.zeros(5, TIME_MIX_EXTRA_DIM, self.dim).uniform_(-1e-4, 1e-4))  # 5 * 160 * dim
 
             # fancy time_decay
             self.time_decay1 = nn.Parameter(torch.randn(1, 1, attn_dim))
             self.time_decay2 = nn.Parameter(torch.randn(1, 1, attn_dim))
 
             TIME_DECAY_EXTRA_DIM = 64
-            self.time_decay_w1_1 = nn.Parameter(torch.zeros(self.dim, TIME_DECAY_EXTRA_DIM).uniform_(-1e-4, 1e-4))
-            self.time_decay_w1_2 = nn.Parameter(torch.zeros(TIME_DECAY_EXTRA_DIM, attn_dim).uniform_(-1e-4, 1e-4))
-            self.time_faaaa_1 = nn.Parameter(torch.randn(self.n_head, self.head_size))
-
-            self.time_decay_w2_1 = nn.Parameter(torch.zeros(self.dim, TIME_DECAY_EXTRA_DIM).uniform_(-1e-4, 1e-4))
-            self.time_decay_w2_2 = nn.Parameter(torch.zeros(TIME_DECAY_EXTRA_DIM, attn_dim).uniform_(-1e-4, 1e-4))
-            self.time_faaaa_2 = nn.Parameter(torch.randn(self.n_head, self.head_size))
+            self.time_decay_w1 = nn.Parameter(
+                torch.zeros(self.dim, TIME_DECAY_EXTRA_DIM).uniform_(-1e-4, 1e-4))  # dim * 64
+            self.time_decay_w2 = nn.Parameter(
+                torch.zeros(TIME_DECAY_EXTRA_DIM, attn_dim).uniform_(-1e-4, 1e-4))  # 64 * dim
+            self.time_faaaa = nn.Parameter(torch.randn(self.n_head, self.head_size))
 
     def jit_func(self, x, resolution):
         B, T, C = x.size()
@@ -389,13 +390,10 @@ class SpatialMix_BiV6(nn.Module):
         r = self.receptance(xr)
         g = F.silu(self.gate(xg))
 
-        ww1 = torch.tanh(xw @ self.time_decay_w1_1) @ self.time_decay_w1_2  # [B, T, C]
-        w1 = self.time_decay1 + ww1
+        ww = torch.tanh(xw @ self.time_decay_w1) @ self.time_decay_w2  # [B, T, C]
+        w = self.time_decay + ww
 
-        ww2 = torch.tanh(xw @ self.time_decay_w2_1) @ self.time_decay_w2_2  # [B, T, C]
-        w2 = self.time_decay2 + ww2
-
-        return r, k, v, g, w1, w2
+        return r, k, v, g, w
 
     def jit_func_2(self, x, g):
         B, T, C = x.size()
@@ -409,20 +407,11 @@ class SpatialMix_BiV6(nn.Module):
         B, T, C = x.size()
         self.device = x.device
 
-        r, k, v, g, w1, w2 = self.jit_func(x, resolution)
+        r, k, v, g, w = self.jit_func(x, resolution)
 
-        v = RUN_CUDA_RWKV6(B, T, C, self.n_head, r, k, v, w1, u=self.time_faaaa_1)
+        v = RUN_CUDA_RWKV6(B, T, C, self.n_head, r, k, v, w, u=self.time_faaaa)
 
-        H, W = resolution
-
-        r = rearrange(r, 'B (H W) C -> B (W H) C', H=H, W=W)
-        k = rearrange(k, 'B (H W) C -> B (W H) C', H=H, W=W)
-        v = rearrange(v, 'B (H W) C -> B (W H) C', H=H, W=W)
-
-        v = RUN_CUDA_RWKV6(B, T, C, self.n_head, r, k, v, w2, u=self.time_faaaa_2)
-        x = rearrange(v, 'B (W H) C -> B (H W) C', H=H, W=W)
-
-        return self.jit_func_2(x, g)
+        return self.jit_func_2(v, g)
 
 
 class ChannelMix_V6(nn.Module):
@@ -490,6 +479,7 @@ class RwkvBlock_BiV6(nn.Module):
         else:
             return self._forward(x)
 
+
 def conv(in_channels, out_channels, kernel_size=5, stride=2):
     return nn.Conv2d(
         in_channels,
@@ -545,6 +535,7 @@ class EntropyParametersBlock(nn.Module):
         x = rearrange(x, "b (h w) c -> b c h w", h=h, w=w)
         return x + identity
 
+
 @register_model("LALICv6")
 class LALICv6(Elic2022Official):
     def __init__(
@@ -569,7 +560,7 @@ class LALICv6(Elic2022Official):
             conv(3, N1, kernel_size=5),
             [RwkvBlock_BiV6(N1) for _ in range(L1)],
             conv(N1, N2, kernel_size=3),
-            [RwkvBlock_BiV6(N2) for i in range(L2)],
+            [RwkvBlock_BiV6(N2) for _ in range(L2)],
             conv(N2, N3, kernel_size=3),
             [RwkvBlock_BiV6(N3) for _ in range(L3)],
             conv(N3, N4, kernel_size=3),
@@ -675,3 +666,13 @@ class LALICv6(Elic2022Official):
         net = cls()
         net.load_state_dict(state_dict, strict=strict)
         return net
+
+    def forward(self, x):
+        y = self.g_a(x)
+        y_out = self.latent_codec(y)
+        y_hat = y_out["y_hat"]
+        x_hat = self.g_s(y_hat)
+        return {
+            "x_hat": x_hat,
+            "likelihoods": y_out["likelihoods"],
+        }
